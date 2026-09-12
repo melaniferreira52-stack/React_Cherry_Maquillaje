@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/* =========================================================
+   Cherry Beauty — tokens de marca (tienda de maquillaje)
+   Paleta rosa, blanco y rojo cherry.
+   Todo el diseño vive en Tailwind; este bloque solo declara
+   los tokens que Tailwind consume. Los nombres de las
+   variables se conservan (strawberry, caramel, pistachio...)
+   para no tener que tocar las clases usadas en cada
+   componente — solo cambian los valores de color.
+========================================================= */
+
+@theme {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Nunito", ui-sans-serif, system-ui, sans-serif;
+
+  /* Base — blanco y rosa muy suave */
+  --color-cream: #ffffff;
+  --color-cream-soft: #fff0f5;
+  --color-vanilla: #fff8fa;
+
+  /* Rosa cherry (acento primario) */
+  --color-strawberry: #ff4d6d;
+  --color-strawberry-deep: #c9184a;
+  --color-strawberry-soft: #ffd6e0;
+
+  /* Rojo cherry profundo (acento secundario / CTA / texto principal) */
+  --color-caramel: #e5383b;
+  --color-caramel-deep: #9d0d2c;
+  --color-caramel-soft: #f8c8ce;
+
+  /* Rosa pastel (acento terciario) */
+  --color-pistachio: #fbafc4;
+  --color-pistachio-deep: #e8748c;
+  --color-pistachio-soft: #fde2e9;
+
+  /* Rosa muy pálido / blanco rosado (acento cuaternario) */
+  --color-skyblue: #ffe5ec;
+  --color-skyblue-deep: #f49cb3;
+  --color-skyblue-soft: #ffffff;
+
+  /* Texto oscuro y bordes — vino/cherry oscuro
+     (necesarios para mantener contraste legible sobre fondos claros) */
+  --color-choco: #5c1a2b;
+  --color-choco-soft: #9c5a6b;
+  --color-border-soft: #f3d3da;
+
+  --shadow-soft: 0 10px 30px -12px rgb(157 13 44 / 0.18);
+  --shadow-lift: 0 18px 45px -14px rgb(157 13 44 / 0.24);
+
+  --radius-blob: 42% 58% 63% 37% / 41% 44% 56% 59%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-cream);
+  color: var(--color-caramel-deep);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--color-caramel-deep);
+}
+
+::selection {
+  background: var(--color-strawberry-soft);
+  color: var(--color-choco);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-caramel);
+  outline-offset: 3px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes carruselAparecer {
+  from { opacity: 0; transform: scale(1.03); }
+  to { opacity: 1; transform: scale(1); }
+}

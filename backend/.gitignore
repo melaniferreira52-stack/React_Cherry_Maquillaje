@@ -1,0 +1,19 @@
+# Entorno virtual
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Variables de entorno (contienen información sensible)
+.env
+
+# Imágenes subidas desde el panel de administrador (no son código fuente)
+app/uploads/productos/*
+!app/uploads/productos/.gitkeep
+
+# Archivos de IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
