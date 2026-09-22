@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import DashboardLayout from "../components/admin/DashboardLayout";
-import AdminPedidos from "./admin/AdminPedidos";
-import AdminProductos from "./admin/AdminProductos";
-import AdminServicios from "./admin/AdminServicios";
-import AdminUsuarios from "./admin/AdminUsuarios";
-import AdminVentas from "./admin/AdminVentas";
-import AdminFacturas from "./admin/AdminFacturas";
-import AdminReportes from "./admin/AdminReportes";
-import AdminPQR from "./admin/AdminPQR";
-import AdminDashboard from "./admin/AdminDashboard";
+
+// Lazy loading: cada sección se carga solo al abrirse.
+const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
+const AdminPedidos = lazy(() => import("./admin/AdminPedidos"));
+const AdminVentas = lazy(() => import("./admin/AdminVentas"));
+const AdminFacturas = lazy(() => import("./admin/AdminFacturas"));
+const AdminReportes = lazy(() => import("./admin/AdminReportes"));
+const AdminProductos = lazy(() => import("./admin/AdminProductos"));
+const AdminServicios = lazy(() => import("./admin/AdminServicios"));
+const AdminPQR = lazy(() => import("./admin/AdminPQR"));
+const AdminUsuarios = lazy(() => import("./admin/AdminUsuarios"));
 
 const SECCIONES = [
   { id: "resumen", etiqueta: "Resumen", icono: "📊" },
@@ -22,6 +24,20 @@ const SECCIONES = [
   { id: "pqr", etiqueta: "PQR", icono: "📥" },
   { id: "usuarios", etiqueta: "Usuarios", icono: "👤" },
 ];
+
+function SuspenseSeccion({ children }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12">
+          <p className="text-sm text-[--color-choco-soft]">Cargando sección...</p>
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
 
 export default function EmpleadoPanel() {
   const { usuario, cerrarSesion } = useAuth();
@@ -38,15 +54,51 @@ export default function EmpleadoPanel() {
       tituloPagina={SECCIONES.find((s) => s.id === seccionActiva)?.etiqueta}
       onCerrarSesion={cerrarSesion}
     >
-      {seccionActiva === "resumen" && <AdminDashboard esAdmin={false} />}
-      {seccionActiva === "pedidos" && <AdminPedidos />}
-      {seccionActiva === "ventas" && <AdminVentas esAdmin={false} />}
-      {seccionActiva === "facturas" && <AdminFacturas esAdmin={false} />}
-      {seccionActiva === "reportes" && <AdminReportes esAdmin={false} />}
-      {seccionActiva === "productos" && <AdminProductos esAdmin={false} />}
-      {seccionActiva === "servicios" && <AdminServicios esAdmin={false} />}
-      {seccionActiva === "pqr" && <AdminPQR esAdmin={false} />}
-      {seccionActiva === "usuarios" && <AdminUsuarios esAdmin={false} />}
+      {seccionActiva === "resumen" && (
+        <SuspenseSeccion>
+          <AdminDashboard esAdmin={false} />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "pedidos" && (
+        <SuspenseSeccion>
+          <AdminPedidos />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "ventas" && (
+        <SuspenseSeccion>
+          <AdminVentas esAdmin={false} />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "facturas" && (
+        <SuspenseSeccion>
+          <AdminFacturas esAdmin={false} />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "reportes" && (
+        <SuspenseSeccion>
+          <AdminReportes esAdmin={false} />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "productos" && (
+        <SuspenseSeccion>
+          <AdminProductos esAdmin={false} />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "servicios" && (
+        <SuspenseSeccion>
+          <AdminServicios esAdmin={false} />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "pqr" && (
+        <SuspenseSeccion>
+          <AdminPQR esAdmin={false} />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "usuarios" && (
+        <SuspenseSeccion>
+          <AdminUsuarios esAdmin={false} />
+        </SuspenseSeccion>
+      )}
     </DashboardLayout>
   );
 }

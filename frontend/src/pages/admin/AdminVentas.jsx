@@ -77,8 +77,12 @@ export default function AdminVentas({ esAdmin = true }) {
   }
 
   useEffect(() => {
-    cargarVentas();
-    listarFacturas();
+    setCargando(true);
+    // Carga inicial en paralelo: ventas + facturas (antes era en serie)
+    Promise.all([
+      listarVentas(token, {}).then((d) => setVentas(d.ventas)).catch((err) => setError(err.message)),
+      listarFacturas(token, {}).then((d) => setFacturas(d.facturas)).catch(() => setFacturas([])),
+    ]).finally(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

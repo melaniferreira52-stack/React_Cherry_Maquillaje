@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import DashboardLayout from "../../components/Admin/DashboardLayout";
-import AdminResumen from "./AdminResumen";
-import AdminPedidos from "./AdminPedidos";
-import AdminProductos from "./AdminProductos";
-import AdminServicios from "./AdminServicios";
-import AdminUsuarios from "./AdminUsuarios";
-import AdminVentas from "./AdminVentas";
-import AdminFacturas from "./AdminFacturas";
-import AdminReportes from "./AdminReportes";
-import AdminPQR from "./AdminPQR";
-import AdminDashboard from "./AdminDashboard";
+
+// Lazy loading: cada sección se carga solo cuando se abre por primera vez.
+// Esto evita que al entrar al panel se descargue TODO (incluido recharts),
+// que era la causa de la lentitud al navegar entre secciones.
+const AdminDashboard = lazy(() => import("./AdminDashboard"));
+const AdminUsuarios = lazy(() => import("./AdminUsuarios"));
+const AdminProductos = lazy(() => import("./AdminProductos"));
+const AdminServicios = lazy(() => import("./AdminServicios"));
+const AdminPedidos = lazy(() => import("./AdminPedidos"));
+const AdminVentas = lazy(() => import("./AdminVentas"));
+const AdminFacturas = lazy(() => import("./AdminFacturas"));
+const AdminReportes = lazy(() => import("./AdminReportes"));
+const AdminPQR = lazy(() => import("./AdminPQR"));
 
 const SECCIONES = [
   { id: "resumen", etiqueta: "Resumen", icono: "🏠" },
@@ -23,6 +26,20 @@ const SECCIONES = [
   { id: "reportes", etiqueta: "Reportes", icono: "📊" },
   { id: "pqr", etiqueta: "PQR", icono: "📥" },
 ];
+
+function SuspenseSeccion({ children }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12">
+          <p className="text-sm text-[--color-choco-soft]">Cargando sección...</p>
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
 
 export default function AdminPanel() {
   const { usuario, cerrarSesion } = useAuth();
@@ -45,35 +62,63 @@ export default function AdminPanel() {
       tituloPagina={SECCIONES.find((s) => s.id === seccionActiva)?.etiqueta}
       onCerrarSesion={cerrarSesion}
     >
-      {seccionActiva === "resumen" && <AdminDashboard onAccionRapida={irACrear} />}
+      {seccionActiva === "resumen" && (
+        <SuspenseSeccion>
+          <AdminDashboard onAccionRapida={irACrear} />
+        </SuspenseSeccion>
+      )}
       {seccionActiva === "usuarios" && (
-        <AdminUsuarios
-          abrirCrearInicial={crearAlEntrar === "usuarios"}
-          onConsumirCrearInicial={() => setCrearAlEntrar(null)}
-        />
+        <SuspenseSeccion>
+          <AdminUsuarios
+            abrirCrearInicial={crearAlEntrar === "usuarios"}
+            onConsumirCrearInicial={() => setCrearAlEntrar(null)}
+          />
+        </SuspenseSeccion>
       )}
       {seccionActiva === "productos" && (
-        <AdminProductos
-          abrirCrearInicial={crearAlEntrar === "productos"}
-          onConsumirCrearInicial={() => setCrearAlEntrar(null)}
-        />
+        <SuspenseSeccion>
+          <AdminProductos
+            abrirCrearInicial={crearAlEntrar === "productos"}
+            onConsumirCrearInicial={() => setCrearAlEntrar(null)}
+          />
+        </SuspenseSeccion>
       )}
       {seccionActiva === "servicios" && (
-        <AdminServicios
-          abrirCrearInicial={crearAlEntrar === "servicios"}
-          onConsumirCrearInicial={() => setCrearAlEntrar(null)}
-        />
+        <SuspenseSeccion>
+          <AdminServicios
+            abrirCrearInicial={crearAlEntrar === "servicios"}
+            onConsumirCrearInicial={() => setCrearAlEntrar(null)}
+          />
+        </SuspenseSeccion>
       )}
       {seccionActiva === "pedidos" && (
-        <AdminPedidos
-          abrirCrearInicial={crearAlEntrar === "pedidos"}
-          onConsumirCrearInicial={() => setCrearAlEntrar(null)}
-        />
+        <SuspenseSeccion>
+          <AdminPedidos
+            abrirCrearInicial={crearAlEntrar === "pedidos"}
+            onConsumirCrearInicial={() => setCrearAlEntrar(null)}
+          />
+        </SuspenseSeccion>
       )}
-      {seccionActiva === "ventas" && <AdminVentas />}
-      {seccionActiva === "facturas" && <AdminFacturas />}
-      {seccionActiva === "reportes" && <AdminReportes />}
-      {seccionActiva === "pqr" && <AdminPQR />}
+      {seccionActiva === "ventas" && (
+        <SuspenseSeccion>
+          <AdminVentas />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "facturas" && (
+        <SuspenseSeccion>
+          <AdminFacturas />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "reportes" && (
+        <SuspenseSeccion>
+          <AdminReportes />
+        </SuspenseSeccion>
+      )}
+      {seccionActiva === "pqr" && (
+        <SuspenseSeccion>
+          <AdminPQR />
+        </SuspenseSeccion>
+      )}
     </DashboardLayout>
   );
 }
