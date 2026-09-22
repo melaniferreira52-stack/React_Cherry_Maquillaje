@@ -327,6 +327,204 @@ ALTER TABLE `pedido_items`
 ALTER TABLE `pedido_servicios`
   ADD CONSTRAINT `fk_pedido_servicios_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `pedidos` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_pedido_servicios_servicio` FOREIGN KEY (`servicio_id`) REFERENCES `servicios` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- QUINTO AVANCE: Estructura de la tabla `ventas`
+-- (cada venta nace de un pedido confirmado, Opción A: pedido → venta)
+--
+
+CREATE TABLE `ventas` (
+  `id` int(11) NOT NULL,
+  `pedido_id` int(11) NOT NULL,
+  `usuario_id` int(11) NOT NULL,
+  `cliente_nombre` varchar(60) NOT NULL,
+  `cliente_apellido` varchar(60) DEFAULT NULL,
+  `cliente_correo` varchar(150) NOT NULL,
+  `subtotal` decimal(10,2) NOT NULL,
+  `descuento` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `impuestos` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total` decimal(10,2) NOT NULL,
+  `estado` enum('registrada','anulada') NOT NULL DEFAULT 'registrada',
+  `fecha_hora` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `ventas`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `pedido_id` (`pedido_id`),
+  ADD KEY `fk_ventas_usuario` (`usuario_id`);
+
+ALTER TABLE `ventas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `ventas`
+  ADD CONSTRAINT `fk_ventas_pedido` FOREIGN KEY (`pedido_id`) REFERENCES `pedidos` (`id`),
+  ADD CONSTRAINT `fk_ventas_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- QUINTO AVANCE: Estructura de la tabla `detalle_ventas`
+--
+
+CREATE TABLE `detalle_ventas` (
+  `id` int(11) NOT NULL,
+  `venta_id` int(11) NOT NULL,
+  `tipo` enum('producto','servicio') NOT NULL,
+  `producto_id` int(11) DEFAULT NULL,
+  `servicio_id` int(11) DEFAULT NULL,
+  `nombre_item` varchar(60) NOT NULL,
+  `cantidad` int(11) NOT NULL,
+  `precio_unitario` decimal(10,2) NOT NULL,
+  `subtotal` decimal(10,2) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `detalle_ventas`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_detalle_ventas_producto` (`producto_id`),
+  ADD KEY `fk_detalle_ventas_servicio` (`servicio_id`),
+  ADD KEY `fk_detalle_ventas_venta` (`venta_id`);
+
+ALTER TABLE `detalle_ventas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `detalle_ventas`
+  ADD CONSTRAINT `fk_detalle_ventas_venta` FOREIGN KEY (`venta_id`) REFERENCES `ventas` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_detalle_ventas_producto` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`),
+  ADD CONSTRAINT `fk_detalle_ventas_servicio` FOREIGN KEY (`servicio_id`) REFERENCES `servicios` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- QUINTO AVANCE: Estructura de la tabla `facturas`
+--
+
+CREATE TABLE `facturas` (
+  `id` int(11) NOT NULL,
+  `venta_id` int(11) NOT NULL,
+  `numero_factura` varchar(20) NOT NULL,
+  `cliente_nombre` varchar(60) NOT NULL,
+  `cliente_apellido` varchar(60) DEFAULT NULL,
+  `cliente_correo` varchar(150) NOT NULL,
+  `subtotal` decimal(10,2) NOT NULL,
+  `impuestos` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total` decimal(10,2) NOT NULL,
+  `estado` enum('emitida','anulada') NOT NULL DEFAULT 'emitida',
+  `creado_en` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `facturas`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `numero_factura` (`numero_factura`),
+  ADD UNIQUE KEY `venta_id` (`venta_id`);
+
+ALTER TABLE `facturas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `facturas`
+  ADD CONSTRAINT `fk_facturas_venta` FOREIGN KEY (`venta_id`) REFERENCES `ventas` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- QUINTO AVANCE: Estructura de la tabla `detalle_facturas`
+--
+
+CREATE TABLE `detalle_facturas` (
+  `id` int(11) NOT NULL,
+  `factura_id` int(11) NOT NULL,
+  `tipo` enum('producto','servicio') NOT NULL,
+  `nombre_item` varchar(60) NOT NULL,
+  `cantidad` int(11) NOT NULL,
+  `precio_unitario` decimal(10,2) NOT NULL,
+  `subtotal` decimal(10,2) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `detalle_facturas`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_detalle_facturas_factura` (`factura_id`);
+
+ALTER TABLE `detalle_facturas`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `detalle_facturas`
+  ADD CONSTRAINT `fk_detalle_facturas_factura` FOREIGN KEY (`factura_id`) REFERENCES `facturas` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+
+--
+-- QUINTO AVANCE: Estructura de la tabla `pqr`
+--
+
+CREATE TABLE `pqr` (
+  `id` int(11) NOT NULL,
+  `usuario_id` int(11) NOT NULL,
+  `tipo` enum('peticion','queja','reclamo') NOT NULL,
+  `asunto` varchar(120) NOT NULL,
+  `mensaje` varchar(500) NOT NULL,
+  `estado` enum('pendiente','en_proceso','respondida','cerrada') NOT NULL DEFAULT 'pendiente',
+  `respuesta` varchar(500) DEFAULT NULL,
+  `creado_en` timestamp NOT NULL DEFAULT current_timestamp(),
+  `actualizado_en` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `pqr`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_pqr_usuario` (`usuario_id`);
+
+ALTER TABLE `pqr`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `pqr`
+  ADD CONSTRAINT `fk_pqr_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- QUINTO AVANCE: Estructura de la tabla `conversaciones` (chatbot)
+--
+
+CREATE TABLE `conversaciones` (
+  `id` int(11) NOT NULL,
+  `usuario_id` int(11) DEFAULT NULL,
+  `creado_en` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `conversaciones`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_conversaciones_usuario` (`usuario_id`);
+
+ALTER TABLE `conversaciones`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `conversaciones`
+  ADD CONSTRAINT `fk_conversaciones_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- QUINTO AVANCE: Estructura de la tabla `mensajes` (chatbot)
+--
+
+CREATE TABLE `mensajes` (
+  `id` int(11) NOT NULL,
+  `conversacion_id` int(11) NOT NULL,
+  `rol` enum('usuario','bot') NOT NULL,
+  `contenido` varchar(2000) NOT NULL,
+  `creado_en` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `mensajes`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_mensajes_conversacion` (`conversacion_id`);
+
+ALTER TABLE `mensajes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `mensajes`
+  ADD CONSTRAINT `fk_mensajes_conversacion` FOREIGN KEY (`conversacion_id`) REFERENCES `conversaciones` (`id`) ON DELETE CASCADE;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

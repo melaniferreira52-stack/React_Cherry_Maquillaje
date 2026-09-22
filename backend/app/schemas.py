@@ -289,7 +289,7 @@ class PedidoEstadoUpdate(BaseModel):
     @field_validator("estado")
     @classmethod
     def validar_estado(cls, v: str) -> str:
-        permitidos = {"pendiente", "en_proceso", "entregado", "cancelado"}
+        permitidos = {"pendiente", "en_proceso", "confirmado" "entregado", "cancelado"}
         if v not in permitidos:
             raise ValueError(f"estado debe ser uno de: {', '.join(permitidos)}")
         return v
@@ -317,3 +317,180 @@ class PedidoOut(BaseModel):
     correo: Optional[str] = None
     detalles: Optional[list[DetallePedidoOut]] = None
     servicios: Optional[list[DetalleServicioOut]] = None
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — VENTAS
+# ---------------------------------------------------------------------------
+class VentaOut(BaseModel):
+    id: int
+    pedido_id: int
+    usuario_id: int
+    cliente_nombre: str
+    cliente_apellido: Optional[str] = None
+    cliente_correo: str
+    subtotal: Decimal
+    descuento: Decimal
+    impuestos: Decimal
+    total: Decimal
+    estado: str
+    fecha_hora: Optional[datetime] = None
+    detalles: Optional[list["DetalleVentaOut"]] = None
+
+
+class DetalleVentaOut(BaseModel):
+    id: int
+    tipo: str
+    producto_id: Optional[int] = None
+    servicio_id: Optional[int] = None
+    nombre_item: str
+    cantidad: int
+    precio_unitario: Decimal
+    subtotal: Decimal
+
+
+VentaOut.model_rebuild()
+
+
+class VentaCrear(BaseModel):
+    """Registra una venta a partir de un pedido confirmado (Opción A)."""
+
+    pedido_id: int
+    descuento: Decimal = Decimal("0.00")
+    impuestos: Decimal = Decimal("0.00")
+
+
+class VentaEstadoUpdate(BaseModel):
+    estado: str
+
+    @field_validator("estado")
+    @classmethod
+    def validar_estado(cls, v: str) -> str:
+        if v not in ("registrada", "anulada"):
+            raise ValueError("estado debe ser 'registrada' o 'anulada'")
+        return v
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — FACTURAS
+# ---------------------------------------------------------------------------
+class FacturaOut(BaseModel):
+    id: int
+    venta_id: int
+    numero_factura: str
+    cliente_nombre: str
+    cliente_apellido: Optional[str] = None
+    cliente_correo: str
+    subtotal: Decimal
+    impuestos: Decimal
+    total: Decimal
+    estado: str
+    creado_en: Optional[datetime] = None
+    detalles: Optional[list["DetalleFacturaOut"]] = None
+
+
+class DetalleFacturaOut(BaseModel):
+    id: int
+    tipo: str
+    nombre_item: str
+    cantidad: int
+    precio_unitario: Decimal
+    subtotal: Decimal
+
+
+FacturaOut.model_rebuild()
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — PQR
+# ---------------------------------------------------------------------------
+class PQRCrear(BaseModel):
+    tipo: str
+    asunto: str = Field(min_length=3, max_length=120)
+    mensaje: str = Field(min_length=5, max_length=500)
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: str) -> str:
+        v = v.lower()
+        if v not in ("peticion", "queja", "reclamo"):
+            raise ValueError("tipo debe ser: peticion, queja o reclamo")
+        return v
+
+
+class PQRResponder(BaseModel):
+    respuesta: str = Field(min_length=3, max_length=500)
+    estado: str = "respondida"
+
+    @field_validator("estado")
+    @classmethod
+    def validar_estado(cls, v: str) -> str:
+        if v not in ("pendiente", "en_proceso", "respondida", "cerrada"):
+            raise ValueError("estado inválido")
+        return v
+
+
+class PQRUpdateEstado(BaseModel):
+    estado: str
+
+    @field_validator("estado")
+    @classmethod
+    def validar_estado(cls, v: str) -> str:
+        if v not in ("pendiente", "en_proceso", "respondida", "cerrada"):
+            raise ValueError("estado inválido")
+        return v
+
+
+class PROut(BaseModel):
+    id: int
+    usuario_id: int
+    tipo: str
+    asunto: str
+    mensaje: str
+    estado: str
+    respuesta: Optional[str] = None
+    creado_en: Optional[datetime] = None
+    actualizado_en: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — CHATBOT
+# ---------------------------------------------------------------------------
+class ChatMensajeRequest(BaseModel):
+    conversacion_id: Optional[int] = None
+    mensaje: str = Field(min_length=1, max_length=2000)
+
+
+class MensajeOut(BaseModel):
+    id: int
+    conversacion_id: int
+    rol: str
+    contenido: str
+    creado_en: Optional[datetime] = None
+
+
+class ConversacionOut(BaseModel):
+    id: int
+    usuario_id: Optional[int] = None
+    creado_en: Optional[datetime] = None
+    mensajes: Optional[list[MensajeOut]] = None
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — ESTADÍSTICAS / DASHBOARD
+# ---------------------------------------------------------------------------
+class IndicadorCard(BaseModel):
+    etiqueta: str
+    valor: int | Decimal
+    icono: str = ""
+    color: str = ""
+
+
+class EstadisticasOut(BaseModel):
+    cards: list[IndicadorCard]
+    ventas_por_periodo: list[dict]
+    ventas_por_estado: list[dict]
+    top_productos: list[dict]
+    pqr_por_estado: list[dict]
+    
+    

@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { misPedidos, obtenerPerfil } from "../lib/api";
+import {
+  misPedidos,
+  obtenerPerfil,
+  misVentas,
+  misFacturas,
+  descargarFacturaPDF,
+  descargarBlob,
+  crearPQR,
+  misPQR,
+} from "../lib/api";
 import DashboardLayout from "../components/Admin/DashboardLayout";
 
 const ETIQUETAS_DOCUMENTO = {
@@ -21,6 +30,8 @@ const ESTILOS_ESTADO = {
 const SECCIONES = [
   { id: "pedidos", etiqueta: "Mis pedidos", icono: "🧾" },
   { id: "servicios", etiqueta: "Mis servicios", icono: "📅" },
+  { id: "facturas", etiqueta: "Mis facturas", icono: "📄" },
+  { id: "pqr", etiqueta: "Mis PQR", icono: "📥" },
   { id: "datos", etiqueta: "Mis datos", icono: "👤" },
 ];
 
@@ -29,20 +40,62 @@ export default function ClientePanel() {
 
   const [perfil, setPerfil] = useState(null);
   const [pedidos, setPedidos] = useState([]);
+  const [facturas, setFacturas] = useState([]);
+  const [pqr, setPqr] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [seccionActiva, setSeccionActiva] = useState("pedidos");
   const [pedidoExpandido, setPedidoExpandido] = useState(null);
 
+  // Estado del formulario PQR
+  const [nuevaPqr, setNuevaPqr] = useState({ tipo: "peticion", asunto: "", mensaje: "" });
+  const [enviandoPqr, setEnviandoPqr] = useState(false);
+  const [mensajePqr, setMensajePqr] = useState("");
+
   useEffect(() => {
-    Promise.all([obtenerPerfil(token), misPedidos(token)])
-      .then(([datosPerfil, datosPedidos]) => {
+    Promise.all([
+      obtenerPerfil(token),
+      misPedidos(token),
+      misFacturas(token).catch(() => ({ facturas: [] })),
+      misPQR(token).catch(() => ({ pqr: [] })),
+    ])
+      .then(([datosPerfil, datosPedidos, datosFacturas, datosPqr]) => {
         setPerfil(datosPerfil.usuario);
         setPedidos(datosPedidos.pedidos);
+        setFacturas(datosFacturas.facturas || []);
+        setPqr(datosPqr.pqr || []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setCargando(false));
   }, [token]);
+
+  async function manejarCrearPqr(e) {
+    e.preventDefault();
+    setEnviandoPqr(true);
+    setMensajePqr("");
+    setError("");
+    try {
+      await crearPQR(token, nuevaPqr);
+      setMensajePqr("Tu solicitud fue enviada. Te responderemos pronto.");
+      setNuevaPqr({ tipo: "peticion", asunto: "", mensaje: "" });
+      const datosQ = await misPQR(token);
+      setPqr(datosQ.pqr);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviandoPqr(false);
+    }
+  }
+
+  async function manejarDescargarFactura(factura) {
+    setError("");
+    try {
+      const respuesta = await descargarFacturaPDF(token, factura.id);
+      await descargarBlob(respuesta, `${factura.numero_factura}.pdf`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   // Mientras carga el perfil completo, usamos lo que ya hay en la sesión
   const nombre = perfil?.nombre ?? usuario?.nombre;
@@ -174,6 +227,145 @@ export default function ClientePanel() {
               )}
             </dl>
           )}
+        </div>
+      )}
+
+      {seccionActiva === "facturas" && (
+        <div className="animate-[fadeSlideIn_.2s_ease-out] space-y-3">
+          <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 font-display text-lg font-semibold text-rose-950">
+              Mis facturas
+            </h2>
+            {facturas.length === 0 ? (
+              <p className="text-sm text-rose-400">
+                Todavía no tienes facturas emitidas.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {facturas.map((factura) => (
+                  <div
+                    key={factura.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50/50 px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-medium text-rose-950">
+                        {factura.numero_factura}
+                      </p>
+                      <p className="text-sm text-rose-400">
+                        {factura.creado_en
+                          ? new Date(factura.creado_en).toLocaleDateString("es-CO")
+                          : ""}{" "}
+                        · ${Number(factura.total).toLocaleString("es-CO")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-600">
+                        {factura.estado}
+                      </span>
+                      <button
+                        onClick={() => manejarDescargarFactura(factura)}
+                        className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-rose-600 shadow-sm ring-1 ring-rose-200 transition hover:bg-rose-100"
+                      >
+                        ⬇ PDF
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {seccionActiva === "pqr" && (
+        <div className="animate-[fadeSlideIn_.2s_ease-out] space-y-4">
+          <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 font-display text-lg font-semibold text-rose-950">
+              Crear una solicitud (PQR)
+            </h2>
+            {mensajePqr && (
+              <p className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {mensajePqr}
+              </p>
+            )}
+            <form onSubmit={manejarCrearPqr} className="grid gap-3">
+              <label className="text-sm">
+                <span className="mb-1 block font-medium text-rose-400">Tipo</span>
+                <select
+                  value={nuevaPqr.tipo}
+                  onChange={(e) => setNuevaPqr({ ...nuevaPqr, tipo: e.target.value })}
+                  className="w-full rounded-lg border border-rose-200 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none"
+                >
+                  <option value="peticion">Petición</option>
+                  <option value="queja">Queja</option>
+                  <option value="reclamo">Reclamo</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block font-medium text-rose-400">Asunto</span>
+                <input
+                  type="text"
+                  value={nuevaPqr.asunto}
+                  onChange={(e) => setNuevaPqr({ ...nuevaPqr, asunto: e.target.value })}
+                  required
+                  minLength={3}
+                  maxLength={120}
+                  placeholder="Ej. Demora en la entrega"
+                  className="w-full rounded-lg border border-rose-200 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block font-medium text-rose-400">Mensaje</span>
+                <textarea
+                  value={nuevaPqr.mensaje}
+                  onChange={(e) => setNuevaPqr({ ...nuevaPqr, mensaje: e.target.value })}
+                  required
+                  minLength={5}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Cuéntanos qué pasó..."
+                  className="w-full rounded-lg border border-rose-200 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={enviandoPqr}
+                className="rounded-full bg-rose-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:opacity-60"
+              >
+                {enviandoPqr ? "Enviando..." : "Enviar solicitud"}
+              </button>
+            </form>
+          </div>
+
+          <div className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 font-display text-lg font-semibold text-rose-950">
+              Mis solicitudes
+            </h2>
+            {pqr.length === 0 ? (
+              <p className="text-sm text-rose-400">No has enviado solicitudes.</p>
+            ) : (
+              <div className="space-y-3">
+                {pqr.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-rose-100 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-rose-950">
+                        #{item.id} · {item.asunto}
+                      </p>
+                      <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold capitalize text-rose-600">
+                        {item.estado}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-rose-400">{item.mensaje}</p>
+                    {item.respuesta && (
+                      <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                        <strong>Respuesta:</strong> {item.respuesta}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

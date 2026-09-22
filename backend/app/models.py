@@ -156,3 +156,150 @@ class PedidoServicio(Base):
 
     pedido = relationship("Pedido", back_populates="servicios")
     servicio = relationship("Servicio")
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — VENTAS (Opción A: cada venta nace de un pedido confirmado)
+# ---------------------------------------------------------------------------
+class Venta(Base):
+    """Operación comercial registrada. Nace 1:1 de un pedido y congela los
+    datos del cliente y los valores de la venta (subtotal, descuento,
+    impuestos, total) en el momento en que se registra."""
+
+    __tablename__ = "ventas"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    pedido_id = Column(
+        Integer, ForeignKey("pedidos.id"), nullable=False, unique=True
+    )  # 1:1 con pedido (Opción A)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    cliente_nombre = Column(String(60), nullable=False)
+    cliente_apellido = Column(String(60), nullable=True)
+    cliente_correo = Column(String(150), nullable=False)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+    descuento = Column(Numeric(10, 2), nullable=False, default=0)
+    impuestos = Column(Numeric(10, 2), nullable=False, default=0)
+    total = Column(Numeric(10, 2), nullable=False)
+    estado = Column(
+        Enum("registrada", "anulada"), nullable=False, default="registrada"
+    )
+    fecha_hora = Column(TIMESTAMP, server_default=func.now())
+
+    pedido = relationship("Pedido")
+    usuario = relationship("Usuario")
+    detalles = relationship(
+        "DetalleVenta", back_populates="venta", cascade="all, delete-orphan"
+    )
+
+
+class DetalleVenta(Base):
+    """Productos y/o servicios incluidos en una venta (req. 2)."""
+
+    __tablename__ = "detalle_ventas"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    venta_id = Column(Integer, ForeignKey("ventas.id", ondelete="CASCADE"), nullable=False)
+    tipo = Column(Enum("producto", "servicio"), nullable=False)
+    producto_id = Column(Integer, ForeignKey("productos.id"), nullable=True)
+    servicio_id = Column(Integer, ForeignKey("servicios.id"), nullable=True)
+    nombre_item = Column(String(60), nullable=False)  # snapshot al registrar
+    cantidad = Column(Integer, nullable=False)
+    precio_unitario = Column(Numeric(10, 2), nullable=False)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+
+    venta = relationship("Venta", back_populates="detalles")
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — FACTURACIÓN
+# ---------------------------------------------------------------------------
+class Factura(Base):
+    """Factura de venta generada a partir de una venta registrada (req. 7)."""
+
+    __tablename__ = "facturas"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    venta_id = Column(Integer, ForeignKey("ventas.id"), nullable=False, unique=True)
+    numero_factura = Column(String(20), nullable=False, unique=True)
+    cliente_nombre = Column(String(60), nullable=False)
+    cliente_apellido = Column(String(60), nullable=True)
+    cliente_correo = Column(String(150), nullable=False)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+    impuestos = Column(Numeric(10, 2), nullable=False, default=0)
+    total = Column(Numeric(10, 2), nullable=False)
+    estado = Column(Enum("emitida", "anulada"), nullable=False, default="emitida")
+    creado_en = Column(TIMESTAMP, server_default=func.now())
+
+    venta = relationship("Venta")
+    detalles = relationship(
+        "DetalleFactura", back_populates="factura", cascade="all, delete-orphan"
+    )
+
+
+class DetalleFactura(Base):
+    """Detalle congelado de la factura (productos y servicios, req. 7)."""
+
+    __tablename__ = "detalle_facturas"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    factura_id = Column(Integer, ForeignKey("facturas.id", ondelete="CASCADE"), nullable=False)
+    tipo = Column(Enum("producto", "servicio"), nullable=False)
+    nombre_item = Column(String(60), nullable=False)
+    cantidad = Column(Integer, nullable=False)
+    precio_unitario = Column(Numeric(10, 2), nullable=False)
+    subtotal = Column(Numeric(10, 2), nullable=False)
+
+    factura = relationship("Factura", back_populates="detalles")
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — PQR
+# ---------------------------------------------------------------------------
+class PQR(Base):
+    """Peticiones, quejas y reclamos (req. 16)."""
+
+    __tablename__ = "pqr"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    tipo = Column(Enum("peticion", "queja", "reclamo"), nullable=False)
+    asunto = Column(String(120), nullable=False)
+    mensaje = Column(String(500), nullable=False)
+    estado = Column(
+        Enum("pendiente", "en_proceso", "respondida", "cerrada"),
+        nullable=False,
+        default="pendiente",
+    )
+    respuesta = Column(String(500), nullable=True)
+    creado_en = Column(TIMESTAMP, server_default=func.now())
+    actualizado_en = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
+
+    usuario = relationship("Usuario")
+
+
+# ---------------------------------------------------------------------------
+# QUINTO AVANCE — CHATBOT (conversaciones y mensajes)
+# ---------------------------------------------------------------------------
+class Conversacion(Base):
+    __tablename__ = "conversaciones"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)  # null si es visitante
+    creado_en = Column(TIMESTAMP, server_default=func.now())
+
+    usuario = relationship("Usuario")
+    mensajes = relationship(
+        "Mensaje", back_populates="conversacion", cascade="all, delete-orphan"
+    )
+
+
+class Mensaje(Base):
+    __tablename__ = "mensajes"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    conversacion_id = Column(Integer, ForeignKey("conversaciones.id", ondelete="CASCADE"), nullable=False)
+    rol = Column(Enum("usuario", "bot"), nullable=False)
+    contenido = Column(String(2000), nullable=False)
+    creado_en = Column(TIMESTAMP, server_default=func.now())
+
+    conversacion = relationship("Conversacion", back_populates="mensajes")

@@ -17,6 +17,9 @@ import ClientePanel from "./pages/ClientePanel";
 // Importación del botón de WhatsApp
 import WhatsAppButton from "./components/WhatsAppButton";
 
+// Widget del chatbot de IA (Quinto Avance)
+import ChatbotWidget from "./components/ChatbotWidget";
+
 function App() {
   return (
     <>
@@ -90,6 +93,9 @@ function App() {
 
       {/* Botón flotante disponible en toda la aplicación */}
       <WhatsAppButton numero="573001234567" />
+
+      {/* Chatbot con IA disponible en toda la aplicación */}
+      <ChatbotWidget />
     </>
   );
 }

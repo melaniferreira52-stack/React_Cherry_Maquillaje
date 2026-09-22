@@ -6,6 +6,8 @@ __pycache__/
 
 # Variables de entorno (contienen información sensible)
 .env
+*.env
+!env.example
 
 # Imágenes subidas desde el panel de administrador (no son código fuente)
 app/uploads/productos/*

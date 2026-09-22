@@ -56,6 +56,18 @@ function Contacto() {
             <p className="leading-loose text-white/90">6:00 AM - 8:00 PM</p>
             <p className="leading-loose text-white/90">Sábados y Domingos</p>
             <p className="leading-loose text-white/90">10:00 AM - 9:00 PM</p>
+
+            {/* Mapa */}
+            <div className="mt-6 w-full overflow-hidden rounded-2xl">
+              <iframe
+                src="https://maps.google.com/maps?q=Manrique,+Medell%C3%ADn,+Antioquia,+Colombia&z=15&output=embed"
+                className="h-40 w-full border-0"
+                allowFullScreen=""
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación Cherry Glow"
+              ></iframe>
+            </div>
           </div>
 
           <form

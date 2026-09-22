@@ -44,7 +44,20 @@ function Footer() {
           <p className="my-1.5 text-white/85">Sábados y Domingos</p>
           <p className="my-1.5 text-white/85">10:00 AM - 9:00 PM</p>
         </div>
-      </div>
+        <div className="mt-7 overflow-hidden rounded-2xl border border-white/15">
+          <iframe
+          
+          title="Ubicación Cherry Beauty"
+          src="https://maps.google.com/maps?q=Manrique,+Medell%C3%ADn,+Antioquia,+Colombia&z=15&output=embed"
+          width="100%"
+          height="180"
+          style={{ border: 0 }}
+          allowFullScreen=""
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          />
+          </div>
+          </div>
 
       <div className="border-t border-white/15 px-6 py-5 text-center">
         <p className="text-sm text-white/65">

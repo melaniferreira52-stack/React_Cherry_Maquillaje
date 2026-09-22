@@ -11,6 +11,7 @@ function Input({
   onChange,
   placeholder,
   error,
+  success,
   maxLength,
   autoComplete,
   rightSlot,
@@ -52,6 +53,13 @@ function Input({
       {error && (
         <p className="mt-1 text-sm font-semibold text-strawberry-deep">
           {error}
+        </p>
+      )}
+
+      {!error && success && (
+        <p className="mt-1 flex items-center gap-1 text-sm font-semibold text-[#059669]">
+          <span aria-hidden="true">➜</span>
+          {success}
         </p>
       )}
     </div>
