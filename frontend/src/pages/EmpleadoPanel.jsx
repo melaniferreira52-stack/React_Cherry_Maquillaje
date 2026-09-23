@@ -14,15 +14,15 @@ const AdminPQR = lazy(() => import("./admin/AdminPQR"));
 const AdminUsuarios = lazy(() => import("./admin/AdminUsuarios"));
 
 const SECCIONES = [
-  { id: "resumen", etiqueta: "Resumen", icono: "📊" },
-  { id: "pedidos", etiqueta: "Pedidos", icono: "🧾" },
-  { id: "ventas", etiqueta: "Ventas", icono: "💰" },
-  { id: "facturas", etiqueta: "Facturas", icono: "📄" },
-  { id: "reportes", etiqueta: "Reportes", icono: "📊" },
-  { id: "productos", etiqueta: "Productos", icono: "🍦" },
-  { id: "servicios", etiqueta: "Servicios", icono: "🎉" },
-  { id: "pqr", etiqueta: "PQR", icono: "📥" },
-  { id: "usuarios", etiqueta: "Usuarios", icono: "👤" },
+  { id: "resumen", etiqueta: "Resumen" },
+  { id: "pedidos", etiqueta: "Pedidos" },
+  { id: "ventas", etiqueta: "Ventas" },
+  { id: "facturas", etiqueta: "Facturas"},
+  { id: "reportes", etiqueta: "Reportes" },
+  { id: "productos", etiqueta: "Productos"},
+  { id: "servicios", etiqueta: "Servicios" },
+  { id: "pqr", etiqueta: "PQR" },
+  { id: "usuarios", etiqueta: "Usuarios" },
 ];
 
 function SuspenseSeccion({ children }) {

@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { enviarMensajeChatbot } from "../lib/api";
 
 const MENSAJES_INICIALES = [
-  { rol: "bot", contenido: "¡Hola! 👋 Soy Cherry, el asistente virtual de Cherry Beauty. Puedo ayudarte con productos, precios, horarios, envíos, cómo comprar, citas y PQR. ¿En qué te ayudo?" },
+  {
+    rol: "bot",
+    contenido:
+      "¡Hola! 👋 Soy Cerezita, la asistente virtual de Cherry Beauty 🍒. Puedo ayudarte con productos, precios, horarios, envíos, cómo comprar, citas y PQR. ¿En qué te ayudo hoy?",
+  },
 ];
 
 export default function ChatbotWidget() {
@@ -52,32 +56,51 @@ export default function ChatbotWidget() {
 
   return (
     <>
-      {/* Botón flotante */}
-      <button
-        onClick={() => setAbierto((v) => !v)}
-        aria-label={abierto ? "Cerrar chat" : "Abrir chat"}
-        className="fixed bottom-24 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#f43f5e] to-[#be185d] text-2xl text-white shadow-xl transition hover:scale-105"
-        style={{ boxShadow: "0 8px 24px rgba(190, 24, 93, 0.35)" }}
-      >
-        {abierto ? "✕" : "💬"}
-      </button>
+      {/* Contenedor del Botón flotante del Chatbot */}
+      <div className="fixed bottom-24 right-6 z-50 flex items-center gap-2 sm:bottom-28 sm:right-8">
+        
+        {/* Etiqueta / Tooltip permanente "Hola, Soy Cerezita" (Visible cuando el chat está cerrado) */}
+        {!abierto && (
+          <div className="relative flex items-center rounded-full border border-rose-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#be123c] shadow-lg animate-bounce">
+            Hola, Soy Cerezita 🍒
+            {/* Pequeña flecha que apunta al botón */}
+            <span className="absolute -right-1.5 top-1/2 -translate-y-1/2 border-y-4 border-l-6 border-y-transparent border-l-white"></span>
+          </div>
+        )}
+
+        {/* Botón flotante */}
+        <button
+          onClick={() => setAbierto((v) => !v)}
+          aria-label={abierto ? "Cerrar chat" : "Abrir chat"}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#f43f5e] to-[#be185d] text-white shadow-xl transition-all hover:-translate-y-0.5 hover:shadow-2xl"
+          style={{ boxShadow: "0 8px 24px rgba(190, 24, 93, 0.35)" }}
+        >
+          {abierto ? (
+            <span className="text-xl font-bold leading-none">✕</span>
+          ) : (
+            <span className="text-2xl leading-none">🍒</span>
+          )}
+        </button>
+      </div>
 
       {/* Ventana del chat */}
       {abierto && (
         <div
-          className="fixed bottom-40 right-5 z-50 flex w-[calc(100vw-2.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-2xl"
+          className="fixed bottom-44 right-6 z-50 flex w-[calc(100vw-2.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-2xl sm:bottom-48 sm:right-8"
           role="dialog"
-          aria-label="Chat de Cherry Beauty"
+          aria-label="Chat de Cerezita"
         >
           {/* Encabezado */}
           <div className="bg-gradient-to-r from-[#f43f5e] to-[#be185d] px-4 py-3 text-white">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-base">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-lg">
                 🍒
               </span>
               <div>
-                <p className="text-sm font-bold leading-tight">Cherry Beauty</p>
-                <p className="text-xs text-white/80">Asistente virtual · en línea</p>
+                <p className="text-sm font-bold leading-tight">Cerezita</p>
+                <p className="text-xs text-white/80">
+                  Asistente de Cherry Beauty · en línea
+                </p>
               </div>
             </div>
           </div>
@@ -101,7 +124,7 @@ export default function ChatbotWidget() {
             ))}
             {escribiendo && (
               <div className="self-start rounded-2xl rounded-bl-sm border border-rose-100 bg-white px-3 py-2 text-sm text-[--color-choco-soft]">
-                Escribiendo<span className="animate-pulse">...</span>
+                Cerezita está escribiendo<span className="animate-pulse">...</span>
               </div>
             )}
           </div>
@@ -117,9 +140,7 @@ export default function ChatbotWidget() {
             {["Horarios", "Envíos", "Cómo comprar", "Productos"].map((sug) => (
               <button
                 key={sug}
-                onClick={() => {
-                  setTexto(sug);
-                }}
+                onClick={() => setTexto(sug)}
                 className="whitespace-nowrap rounded-full border border-rose-200 px-2.5 py-1 text-xs font-medium text-[#be123c] hover:bg-rose-50"
               >
                 {sug}
@@ -128,7 +149,10 @@ export default function ChatbotWidget() {
           </div>
 
           {/* Input */}
-          <form onSubmit={manejarEnvio} className="flex gap-2 border-t border-rose-100 bg-white p-2.5">
+          <form
+            onSubmit={manejarEnvio}
+            className="flex gap-2 border-t border-rose-100 bg-white p-2.5"
+          >
             <input
               type="text"
               value={texto}

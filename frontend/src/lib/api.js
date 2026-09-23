@@ -450,6 +450,10 @@ export function estadisticasAdmin(token, filtros = {}) {
   if (filtros.fecha_desde) params.set("fecha_desde", filtros.fecha_desde);
   if (filtros.fecha_hasta) params.set("fecha_hasta", filtros.fecha_hasta);
   if (filtros.agrupacion) params.set("agrupacion", filtros.agrupacion);
+  if (filtros.estado) params.set("estado", filtros.estado);
+  if (filtros.cliente) params.set("cliente", filtros.cliente);
+  if (filtros.producto) params.set("producto", filtros.producto);
+  if (filtros.servicio) params.set("servicio", filtros.servicio);
   const qs = params.toString();
   return peticion(`/estadisticas/admin${qs ? `?${qs}` : ""}`, { token });
 }

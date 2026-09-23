@@ -6,7 +6,18 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..dependencies import get_current_user, require_roles
-from ..models import Carrito, CarritoItem, Pedido, PedidoItem, PedidoServicio, Producto, Servicio, Usuario
+from ..models import (
+    Carrito,
+    CarritoItem,
+    DetalleVenta,
+    Pedido,
+    PedidoItem,
+    PedidoServicio,
+    Producto,
+    Servicio,
+    Usuario,
+    Venta,
+)
 from ..schemas import PedidoCrear, PedidoEstadoUpdate
 
 router = APIRouter(prefix="/api/pedidos", tags=["Pedidos"])
@@ -75,6 +86,7 @@ def crear_pedido_desde_carrito(
     total = sum(float(item.producto.precio) * item.cantidad for item in items_carrito)
     total += sum(float(s.precio) for s in servicios_elegidos)
 
+    # 1. Crear el Pedido
     nuevo_pedido = Pedido(
         usuario_id=usuario_actual.id,
         total=total,
@@ -82,8 +94,9 @@ def crear_pedido_desde_carrito(
         metodo_pago=datos.metodo_pago,
     )
     db.add(nuevo_pedido)
-    db.flush()  # para obtener nuevo_pedido.id antes del commit
+    db.flush()  # Obtener nuevo_pedido.id
 
+    # 2. Agregar ítems y servicios al pedido
     for item in items_carrito:
         db.add(
             PedidoItem(
@@ -94,7 +107,6 @@ def crear_pedido_desde_carrito(
                 cantidad=item.cantidad,
             )
         )
-        db.delete(item)
 
     for servicio in servicios_elegidos:
         db.add(
@@ -102,6 +114,56 @@ def crear_pedido_desde_carrito(
                 pedido_id=nuevo_pedido.id,
                 servicio_id=servicio.id,
                 precio_unitario=servicio.precio,
+            )
+        )
+
+    # 3. Crear automáticamente la Venta asociada
+    cliente_perfil = usuario_actual.cliente if hasattr(usuario_actual, "cliente") else None
+    cliente_nombre = cliente_perfil.nombre if cliente_perfil else usuario_actual.nombre
+    cliente_apellido = cliente_perfil.apellido if cliente_perfil else None
+
+    nueva_venta = Venta(
+        pedido_id=nuevo_pedido.id,
+        usuario_id=usuario_actual.id,
+        cliente_nombre=cliente_nombre,
+        cliente_apellido=cliente_apellido,
+        cliente_correo=usuario_actual.correo,
+        subtotal=total,
+        descuento=0.0,
+        impuestos=0.0,
+        total=total,
+        estado="registrada",
+    )
+    db.add(nueva_venta)
+    db.flush()  # Obtener nueva_venta.id
+
+    # 4. Crear los detalles de la venta
+    for item in items_carrito:
+        db.add(
+            DetalleVenta(
+                venta_id=nueva_venta.id,
+                tipo="producto",
+                producto_id=item.producto_id,
+                servicio_id=None,
+                nombre_item=item.producto.nombre,
+                cantidad=item.cantidad,
+                precio_unitario=item.producto.precio,
+                subtotal=float(item.producto.precio) * item.cantidad,
+            )
+        )
+        db.delete(item)  # Limpiar el carrito de compras
+
+    for servicio in servicios_elegidos:
+        db.add(
+            DetalleVenta(
+                venta_id=nueva_venta.id,
+                tipo="servicio",
+                producto_id=None,
+                servicio_id=servicio.id,
+                nombre_item=servicio.nombre,
+                cantidad=1,
+                precio_unitario=servicio.precio,
+                subtotal=float(servicio.precio),
             )
         )
 
@@ -143,6 +205,7 @@ def crear_pedido_manual(
         total += float(producto.precio) * item.cantidad
         items_a_crear.append((producto, item.cantidad))
 
+    # 1. Crear el Pedido
     nuevo_pedido = Pedido(
         usuario_id=cliente.id,
         total=total,
@@ -150,8 +213,9 @@ def crear_pedido_manual(
         metodo_pago="efectivo",
     )
     db.add(nuevo_pedido)
-    db.flush()  # para obtener nuevo_pedido.id antes del commit
+    db.flush()
 
+    # 2. Agregar ítems al pedido
     for producto, cantidad in items_a_crear:
         db.add(
             PedidoItem(
@@ -160,6 +224,41 @@ def crear_pedido_manual(
                 nombre_producto=producto.nombre,
                 precio_unitario=producto.precio,
                 cantidad=cantidad,
+            )
+        )
+
+    # 3. Crear automáticamente la Venta asociada
+    cliente_perfil = cliente.cliente if hasattr(cliente, "cliente") else None
+    cliente_nombre = cliente_perfil.nombre if cliente_perfil else cliente.nombre
+    cliente_apellido = cliente_perfil.apellido if cliente_perfil else None
+
+    nueva_venta = Venta(
+        pedido_id=nuevo_pedido.id,
+        usuario_id=cliente.id,
+        cliente_nombre=cliente_nombre,
+        cliente_apellido=cliente_apellido,
+        cliente_correo=cliente.correo,
+        subtotal=total,
+        descuento=0.0,
+        impuestos=0.0,
+        total=total,
+        estado="registrada",
+    )
+    db.add(nueva_venta)
+    db.flush()
+
+    # 4. Crear los detalles de la venta
+    for producto, cantidad in items_a_crear:
+        db.add(
+            DetalleVenta(
+                venta_id=nueva_venta.id,
+                tipo="producto",
+                producto_id=producto.id,
+                servicio_id=None,
+                nombre_item=producto.nombre,
+                cantidad=cantidad,
+                precio_unitario=producto.precio,
+                subtotal=float(producto.precio) * cantidad,
             )
         )
 
@@ -180,6 +279,7 @@ def mis_pedidos(
         .all()
     )
     return {"pedidos": [_pedido_a_dict(p, incluir_detalles=True) for p in pedidos]}
+
 
 @router.get("")
 def listar_todos_los_pedidos(

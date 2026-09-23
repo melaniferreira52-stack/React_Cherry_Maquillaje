@@ -44,68 +44,96 @@ def _cards_administrador(db: Session) -> list[dict]:
     ]
 
 
-def _ventas_por_periodo(
+def _query_ventas_filtradas(
     db: Session,
     desde: datetime,
     hasta: datetime,
-    agrupacion: str,
-) -> list[dict]:
+    estado: Optional[str],
+    cliente: Optional[str],
+    producto: Optional[str],
+    servicio: Optional[str],
+):
+    """Query base de Venta aplicando los 6 filtros del requisito 13:
+    fecha inicial, fecha final, producto, servicio, estado y cliente."""
+    q = db.query(Venta).filter(Venta.fecha_hora >= desde, Venta.fecha_hora <= hasta)
+
+    if estado:
+        q = q.filter(Venta.estado == estado)
+    else:
+        q = q.filter(Venta.estado == "registrada")
+
+    if cliente:
+        like = f"%{cliente}%"
+        q = q.filter(
+            (Venta.cliente_nombre.ilike(like))
+            | (Venta.cliente_apellido.ilike(like))
+            | (Venta.cliente_correo.ilike(like))
+        )
+
+    if producto:
+        ids_producto = db.query(DetalleVenta.venta_id).filter(
+            DetalleVenta.tipo == "producto",
+            DetalleVenta.nombre_item.ilike(f"%{producto}%"),
+        )
+        q = q.filter(Venta.id.in_(ids_producto))
+
+    if servicio:
+        ids_servicio = db.query(DetalleVenta.venta_id).filter(
+            DetalleVenta.tipo == "servicio",
+            DetalleVenta.nombre_item.ilike(f"%{servicio}%"),
+        )
+        q = q.filter(Venta.id.in_(ids_servicio))
+
+    return q
+
+
+def _ventas_por_periodo(ventas: list[Venta], agrupacion: str) -> list[dict]:
     """Agrupa ventas por día, semana o mes (req. 11)."""
-    consulta = db.query(Venta.fecha_hora, Venta.total).filter(
-        Venta.fecha_hora >= desde,
-        Venta.fecha_hora <= hasta,
-        Venta.estado == "registrada",
-    )
-    pares = consulta.all()
     buckets: dict[str, float] = {}
-    for fecha_hora, total in pares:
+    for venta in ventas:
+        fecha_hora = venta.fecha_hora
         if not fecha_hora:
             continue
         if agrupacion == "mes":
             clave = fecha_hora.strftime("%Y-%m")
-            etiqueta = fecha_hora.strftime("%b %Y")
         elif agrupacion == "semana":
-            # Semana ISO (lunes a domingo)
             lunes = (fecha_hora - timedelta(days=fecha_hora.weekday())).date()
             clave = lunes.isoformat()
-            etiqueta = f"Sem {lunes.strftime('%d/%m')}"
         else:  # dia
             clave = fecha_hora.date().isoformat()
-            etiqueta = fecha_hora.strftime("%d/%m")
-        buckets[clave] = buckets.get(clave, 0.0) + float(total)
-    return [
-        {"clave": k, "etiqueta": etiqueta, "total": v}
-        for k, v, etiqueta in _ordenar(buckets)
-    ]
+        buckets[clave] = buckets.get(clave, 0.0) + float(venta.total)
 
-
-def _ordenar(buckets: dict[str, float]) -> list[tuple[str, float, str]]:
-    # Reconstruye la etiqueta ordenando por clave (que es ISO cuando es dia/semana/mes)
     salida = []
-    for k in sorted(buckets.keys()):
-        if "-" in k and len(k) == 10:  # fecha ISO
-            etiqueta = datetime.strptime(k, "%Y-%m-%d").strftime("%d/%m")
-        elif "-" in k and len(k) == 7:
-            etiqueta = datetime.strptime(k, "%Y-%m").strftime("%b %Y")
+    for clave in sorted(buckets.keys()):
+        if agrupacion == "mes":
+            etiqueta = datetime.strptime(clave, "%Y-%m").strftime("%b %Y")
+        elif agrupacion == "semana":
+            etiqueta = f"Sem {datetime.strptime(clave, '%Y-%m-%d').strftime('%d/%m')}"
         else:
-            etiqueta = k
-        salida.append((k, buckets[k], etiqueta))
+            etiqueta = datetime.strptime(clave, "%Y-%m-%d").strftime("%d/%m")
+        salida.append({"clave": clave, "etiqueta": etiqueta, "total": buckets[clave]})
     return salida
 
 
-def _ventas_por_estado(db: Session) -> list[dict]:
-    filas = (
-        db.query(Venta.estado, func.count(Venta.id), func.coalesce(func.sum(Venta.total), 0))
-        .group_by(Venta.estado)
-        .all()
-    )
-    return [{"estado": e, "cantidad": c, "total": float(t)} for e, c, t in filas]
+def _ventas_por_estado(ventas: list[Venta]) -> list[dict]:
+    conteo: dict[str, dict] = {}
+    for venta in ventas:
+        d = conteo.setdefault(venta.estado, {"cantidad": 0, "total": 0.0})
+        d["cantidad"] += 1
+        d["total"] += float(venta.total)
+    return [{"estado": e, **d} for e, d in conteo.items()]
 
 
-def _top_productos(db: Session, limite: int = 5) -> list[dict]:
+def _top_productos(db: Session, venta_ids: list[int], limite: int = 5) -> list[dict]:
+    if not venta_ids:
+        return []
     filas = (
-        db.query(DetalleVenta.nombre_item, func.sum(DetalleVenta.cantidad), func.sum(DetalleVenta.subtotal))
-        .filter(DetalleVenta.tipo == "producto")
+        db.query(
+            DetalleVenta.nombre_item,
+            func.sum(DetalleVenta.cantidad),
+            func.sum(DetalleVenta.subtotal),
+        )
+        .filter(DetalleVenta.tipo == "producto", DetalleVenta.venta_id.in_(venta_ids))
         .group_by(DetalleVenta.nombre_item)
         .order_by(func.sum(DetalleVenta.subtotal).desc())
         .limit(limite)
@@ -115,53 +143,88 @@ def _top_productos(db: Session, limite: int = 5) -> list[dict]:
 
 
 def _pqr_por_estado(db: Session) -> list[dict]:
-    filas = (
-        db.query(PQR.estado, func.count(PQR.id))
-        .group_by(PQR.estado)
-        .all()
-    )
+    filas = db.query(PQR.estado, func.count(PQR.id)).group_by(PQR.estado).all()
     return [{"estado": e, "cantidad": c} for e, c in filas]
 
 
-@router.get("/admin")
-def estadisticas_admin(
-    fecha_desde: Optional[date] = Query(None, alias="fecha_desde"),
-    fecha_hasta: Optional[date] = Query(None, alias="fecha_hasta"),
-    agrupacion: str = Query("dia"),
-    db: Session = Depends(get_db),
-    usuario_actual: Usuario = Depends(require_roles("administrador")),
-):
-    """Dashboard administrativo: indicadores + series (req. 10, 11, 13, 15)."""
+def _resolver_filtros_comunes(
+    fecha_desde: Optional[date],
+    fecha_hasta: Optional[date],
+    agrupacion: str,
+) -> tuple[datetime, datetime, str]:
     hoy = date.today()
     desde = datetime.combine(fecha_desde or (hoy - timedelta(days=30)), time.min)
     hasta = datetime.combine(fecha_hasta or hoy, time.max)
     if agrupacion not in ("dia", "semana", "mes"):
         agrupacion = "dia"
+    return desde, hasta, agrupacion
 
+
+def _bloque_ventas(
+    db: Session,
+    desde: datetime,
+    hasta: datetime,
+    agrupacion: str,
+    estado: Optional[str],
+    cliente: Optional[str],
+    producto: Optional[str],
+    servicio: Optional[str],
+) -> dict:
+    ventas = _query_ventas_filtradas(db, desde, hasta, estado, cliente, producto, servicio).all()
+    venta_ids = [v.id for v in ventas]
+    return {
+        "ventas_por_periodo": _ventas_por_periodo(ventas, agrupacion),
+        "ventas_por_estado": _ventas_por_estado(ventas),
+        "top_productos": _top_productos(db, venta_ids),
+        "filtros": {
+            "fecha_desde": desde.date().isoformat(),
+            "fecha_hasta": hasta.date().isoformat(),
+            "agrupacion": agrupacion,
+            "estado": estado,
+            "cliente": cliente,
+            "producto": producto,
+            "servicio": servicio,
+        },
+    }
+
+
+@router.get("/admin")
+def estadisticas_admin(
+    fecha_desde: Optional[date] = Query(None),
+    fecha_hasta: Optional[date] = Query(None),
+    agrupacion: str = Query("dia"),
+    estado: Optional[str] = Query(None),
+    cliente: Optional[str] = Query(None),
+    producto: Optional[str] = Query(None),
+    servicio: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    usuario_actual: Usuario = Depends(require_roles("administrador")),
+):
+    """Dashboard administrativo: indicadores + series (req. 10, 11, 13, 15)."""
+    desde, hasta, agrupacion = _resolver_filtros_comunes(fecha_desde, fecha_hasta, agrupacion)
+    bloque = _bloque_ventas(db, desde, hasta, agrupacion, estado, cliente, producto, servicio)
     return {
         "cards": _cards_administrador(db),
-        "ventas_por_periodo": _ventas_por_periodo(db, desde, hasta, agrupacion),
-        "ventas_por_estado": _ventas_por_estado(db),
-        "top_productos": _top_productos(db),
         "pqr_por_estado": _pqr_por_estado(db),
-        "filtros": {"fecha_desde": desde.date().isoformat(), "fecha_hasta": hasta.date().isoformat(), "agrupacion": agrupacion},
+        **bloque,
     }
 
 
 @router.get("/empleado")
 def estadisticas_empleado(
-    fecha_desde: Optional[date] = Query(None, alias="fecha_desde"),
-    fecha_hasta: Optional[date] = Query(None, alias="fecha_hasta"),
+    fecha_desde: Optional[date] = Query(None),
+    fecha_hasta: Optional[date] = Query(None),
     agrupacion: str = Query("dia"),
+    estado: Optional[str] = Query(None),
+    cliente: Optional[str] = Query(None),
+    producto: Optional[str] = Query(None),
+    servicio: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     usuario_actual: Usuario = Depends(require_roles("administrador", "empleado")),
 ):
     """Dashboard del empleado: ventas, facturación y PQR (sin usuarios)."""
-    hoy = date.today()
-    desde = datetime.combine(fecha_desde or (hoy - timedelta(days=30)), time.min)
-    hasta = datetime.combine(fecha_hasta or hoy, time.max)
-    if agrupacion not in ("dia", "semana", "mes"):
-        agrupacion = "dia"
+    desde, hasta, agrupacion = _resolver_filtros_comunes(fecha_desde, fecha_hasta, agrupacion)
+    bloque = _bloque_ventas(db, desde, hasta, agrupacion, estado, cliente, producto, servicio)
 
     total_ventas = db.query(func.count(Venta.id)).scalar() or 0
     total_facturado = (
@@ -181,11 +244,8 @@ def estadisticas_empleado(
             {"etiqueta": "PQR pendientes", "valor": pqr_pendientes, "icono": "⏳", "color": "orange"},
             {"etiqueta": "Pedidos", "valor": db.query(func.count(Pedido.id)).scalar() or 0, "icono": "🧾", "color": "sky"},
         ],
-        "ventas_por_periodo": _ventas_por_periodo(db, desde, hasta, agrupacion),
-        "ventas_por_estado": _ventas_por_estado(db),
-        "top_productos": _top_productos(db),
         "pqr_por_estado": _pqr_por_estado(db),
-        "filtros": {"fecha_desde": desde.date().isoformat(), "fecha_hasta": hasta.date().isoformat(), "agrupacion": agrupacion},
+        **bloque,
     }
 
 
@@ -195,11 +255,7 @@ def estadisticas_cliente(
     usuario_actual: Usuario = Depends(get_current_user),
 ):
     """Dashboard del cliente: sus ventas, facturas y PQR (req. 12)."""
-    ventas = (
-        db.query(Venta)
-        .filter(Venta.usuario_id == usuario_actual.id)
-        .all()
-    )
+    ventas = db.query(Venta).filter(Venta.usuario_id == usuario_actual.id).all()
     facturas = (
         db.query(Factura)
         .join(Venta, Venta.id == Factura.venta_id)
@@ -220,12 +276,7 @@ def estadisticas_cliente(
             {"etiqueta": "PQR en curso", "valor": pqr_en_curso, "icono": "⏳", "color": "orange"},
         ],
         "ultimas_ventas": [
-            {
-                "id": v.id,
-                "total": v.total,
-                "estado": v.estado,
-                "fecha": v.fecha_hora,
-            }
+            {"id": v.id, "total": v.total, "estado": v.estado, "fecha": v.fecha_hora}
             for v in sorted(ventas, key=lambda x: x.fecha_hora or datetime.min, reverse=True)[:5]
         ],
     }

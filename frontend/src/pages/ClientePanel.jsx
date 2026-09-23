@@ -28,11 +28,11 @@ const ESTILOS_ESTADO = {
 };
 
 const SECCIONES = [
-  { id: "pedidos", etiqueta: "Mis pedidos", icono: "🧾" },
-  { id: "servicios", etiqueta: "Mis servicios", icono: "📅" },
-  { id: "facturas", etiqueta: "Mis facturas", icono: "📄" },
-  { id: "pqr", etiqueta: "Mis PQR", icono: "📥" },
-  { id: "datos", etiqueta: "Mis datos", icono: "👤" },
+  { id: "pedidos", etiqueta: "Mis pedidos" },
+  { id: "servicios", etiqueta: "Mis servicios" },
+  { id: "facturas", etiqueta: "Mis facturas" },
+  { id: "pqr", etiqueta: "Mis PQR"},
+  { id: "datos", etiqueta: "Mis datos" },
 ];
 
 export default function ClientePanel() {

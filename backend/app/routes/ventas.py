@@ -57,8 +57,7 @@ def registrar_venta(
     db: Session = Depends(get_db),
     usuario_actual: Usuario = Depends(require_roles("administrador", "empleado")),
 ):
-    """Registra una venta a partir de un pedido (Opción A: pedido → venta).
-    Congela los datos del cliente y desglosa subtotal/descuento/impuestos/total."""
+    """Registra una venta manualmente a partir de un pedido existente si no fue generada automáticamente."""
     if db.query(Venta).filter(Venta.pedido_id == datos.pedido_id).first():
         raise HTTPException(
             status_code=400,
@@ -84,7 +83,7 @@ def registrar_venta(
         )
 
     cliente = pedido.usuario.cliente if pedido.usuario else None
-    cliente_nombre = cliente.nombre if cliente else pedido.usuario.nombre
+    cliente_nombre = cliente.nombre if cliente else (pedido.usuario.nombre if pedido.usuario else "Desconocido")
     cliente_apellido = cliente.apellido if cliente else None
     cliente_correo = pedido.usuario.correo if pedido.usuario else None
     if not cliente_correo:
@@ -113,7 +112,7 @@ def registrar_venta(
         estado="registrada",
     )
     db.add(venta)
-    db.flush()  # para obtener venta.id
+    db.flush()
 
     for item in pedido.items:
         db.add(
@@ -142,7 +141,6 @@ def registrar_venta(
             )
         )
 
-    # La venta marca el pedido como confirmado/entregado (operación registrada)
     if pedido.estado == "pendiente":
         pedido.estado = "en_proceso"
 
@@ -164,8 +162,7 @@ def listar_ventas(
     db: Session = Depends(get_db),
     usuario_actual: Usuario = Depends(require_roles("administrador", "empleado")),
 ):
-    """Historial de ventas con filtros (req. 3): fecha, cliente, producto,
-    servicio, estado y valor."""
+    """Historial de ventas con filtros por fecha, cliente, producto, servicio, estado y valor."""
     consulta = db.query(Venta).options(joinedload(Venta.detalles))
 
     if fecha_desde:
@@ -200,7 +197,7 @@ def mis_ventas(
     db: Session = Depends(get_db),
     usuario_actual: Usuario = Depends(get_current_user),
 ):
-    """El cliente consulta sus propias ventas (dashboard de cliente)."""
+    """El cliente consulta sus propias ventas."""
     ventas = (
         db.query(Venta)
         .options(joinedload(Venta.detalles))

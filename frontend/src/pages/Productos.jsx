@@ -210,7 +210,7 @@ function Productos() {
       <button
         onClick={() => setCarritoAbierto(true)}
         aria-label="Ver pedido"
-        className="fixed bottom-28 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-caramel text-2xl text-white shadow-lift transition-all hover:-translate-y-1 hover:bg-caramel-deep"   
+        className="fixed bottom-48 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-caramel text-2xl text-white shadow-lift transition-all hover:-translate-y-1 hover:bg-caramel-deep"   
          >
         🛒
         {totalItems > 0 && (

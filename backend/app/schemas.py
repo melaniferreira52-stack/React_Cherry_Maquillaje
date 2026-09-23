@@ -289,7 +289,7 @@ class PedidoEstadoUpdate(BaseModel):
     @field_validator("estado")
     @classmethod
     def validar_estado(cls, v: str) -> str:
-        permitidos = {"pendiente", "en_proceso", "confirmado" "entregado", "cancelado"}
+        permitidos = {"pendiente", "en_proceso", "confirmado", "entregado", "cancelado"}
         if v not in permitidos:
             raise ValueError(f"estado debe ser uno de: {', '.join(permitidos)}")
         return v
