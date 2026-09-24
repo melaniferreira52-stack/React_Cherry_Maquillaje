@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import DashboardLayout from "../components/admin/DashboardLayout";
+import DashboardLayout from "../components/Admin/DashboardLayout";
 
 // Lazy loading: cada sección se carga solo al abrirse.
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));

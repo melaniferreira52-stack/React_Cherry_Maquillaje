@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import PanelToolbar from "../../components/admin/PanelToolbar";
-import PanelModal from "../../components/admin/PanelModal";
+import PanelToolbar from "../../components/Admin/PanelToolbar";
+import PanelModal from "../../components/Admin/PanelModal";
 import {
   obtenerServiciosAdmin,
   crearServicio,
