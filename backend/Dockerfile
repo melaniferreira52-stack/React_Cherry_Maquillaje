@@ -10,11 +10,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Copia e instala dependencias
-COPY backend/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r /app/requirements.txt
 
 # Copia el código del backend
-COPY backend/ /app/
+COPY . /app/
 
 # Crea carpetas necesarias
 RUN mkdir -p /app/app/uploads/productos
