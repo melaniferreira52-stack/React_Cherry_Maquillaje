@@ -24,7 +24,6 @@ router = APIRouter(prefix="/api", tags=["Autenticación"])
 
 # ---------------------------------------------------------------------------
 # REGISTRO PÚBLICO DE CLIENTES  ->  POST /api/registro
-# Crea una fila en `usuarios` (credenciales) y otra en `clientes` (perfil)
 # ---------------------------------------------------------------------------
 @router.post("/registro", status_code=status.HTTP_201_CREATED)
 def registro(datos: UsuarioCreate, db: Session = Depends(get_db)):
@@ -39,14 +38,14 @@ def registro(datos: UsuarioCreate, db: Session = Depends(get_db)):
 
     try:
         nuevo_usuario = Usuario(
-            nombre="",  # el nombre real vive en Cliente; se deja vacío como en los registros existentes
+            nombre="",  
             correo=datos.correo,
             password=hash_password(datos.password),
             rol="cliente",
             estado="activo",
         )
         db.add(nuevo_usuario)
-        db.flush()  # para obtener nuevo_usuario.id antes del commit
+        db.flush()  
 
         nuevo_cliente = Cliente(
             usuario_id=nuevo_usuario.id,
@@ -106,21 +105,38 @@ def perfil(usuario_actual: Usuario = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
-# RECUPERACIÓN DE CONTRASEÑA (código de 6 dígitos por correo)
-# Reutiliza las columnas existentes reset_token / reset_token_expira.
+# RECUPERACIÓN DE CONTRASEÑA (Mejorada con logs en terminal y manejo de errores)
 # ---------------------------------------------------------------------------
 @router.post("/recuperar-password")
 def recuperar_password(datos: SolicitarRecuperacionRequest, db: Session = Depends(get_db)):
+    print(f"\n[DEBUG] Petición recibida en /recuperar-password con correo: '{datos.correo}'")
+    
     usuario = db.query(Usuario).filter(Usuario.correo == datos.correo).first()
 
-    # Por seguridad, siempre respondemos igual exista o no el correo.
-    if usuario:
+    if not usuario:
+        print(f"[DEBUG] ⚠️ El correo '{datos.correo}' NO existe en la base de datos.")
+        # Por seguridad devolvemos el mismo mensaje genérico para que no sepan qué correos existen
+        return {"mensaje": "Si el correo está registrado, recibirás un código de 6 dígitos."}
+
+    try:
         codigo = f"{random.randint(0, 999999):06d}"
         usuario.reset_token = codigo
         usuario.reset_token_expira = datetime.utcnow() + timedelta(minutes=10)
         db.commit()
+        
         nombre_para_correo = usuario.cliente.nombre if usuario.cliente else usuario.correo
+        
+        print(f"[DEBUG] Generando código {codigo} para {usuario.correo}. Enviando correo...")
         enviar_codigo_recuperacion(usuario.correo, nombre_para_correo, codigo)
+        print("[DEBUG] ¡Correo de recuperación enviado con éxito desde la página web!")
+        
+    except Exception as e:
+        db.rollback()
+        print(f"[DEBUG] ❌ Error crítico al enviar el correo: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Ocurrió un error al enviar el correo de recuperación: {str(e)}"
+        )
 
     return {"mensaje": "Si el correo está registrado, recibirás un código de 6 dígitos."}
 

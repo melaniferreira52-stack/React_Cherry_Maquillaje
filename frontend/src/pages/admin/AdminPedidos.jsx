@@ -24,10 +24,34 @@ const ESTILOS_ESTADO = {
   cancelado: "bg-[--color-strawberry-soft] text-[--color-strawberry-deep]",
 };
 
+const REGEX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CANTIDAD_MAXIMA = 50;
+
 let contadorLinea = 0;
 function lineaVacia() {
   contadorLinea += 1;
   return { clave: contadorLinea, producto_id: "", cantidad: 1 };
+}
+
+// Valida el correo del cliente
+function validarCorreo(valor) {
+  if (!valor.trim()) return "El correo del cliente es obligatorio";
+  if (!REGEX_CORREO.test(valor)) return "Ingresa un correo válido";
+  return "";
+}
+
+// Valida una línea de producto individual
+function validarLinea(linea) {
+  const errores = {};
+  if (!linea.producto_id) errores.producto_id = "Selecciona un producto";
+  if (linea.cantidad === "" || linea.cantidad === null) {
+    errores.cantidad = "Obligatorio";
+  } else if (Number(linea.cantidad) < 1) {
+    errores.cantidad = "Mínimo 1";
+  } else if (Number(linea.cantidad) > CANTIDAD_MAXIMA) {
+    errores.cantidad = `Máximo ${CANTIDAD_MAXIMA}`;
+  }
+  return errores;
 }
 
 export default function AdminPedidos({
@@ -47,7 +71,9 @@ export default function AdminPedidos({
   const [productos, setProductos] = useState([]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [correoCliente, setCorreoCliente] = useState("");
+  const [errorCorreo, setErrorCorreo] = useState("");
   const [lineas, setLineas] = useState([lineaVacia()]);
+  const [erroresLineas, setErroresLineas] = useState({});
   const [errorFormulario, setErrorFormulario] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -106,7 +132,9 @@ export default function AdminPedidos({
 
   async function abrirFormulario() {
     setCorreoCliente("");
+    setErrorCorreo("");
     setLineas([lineaVacia()]);
+    setErroresLineas({});
     setErrorFormulario("");
     setMostrarFormulario(true);
     if (productos.length === 0) {
@@ -123,12 +151,24 @@ export default function AdminPedidos({
     setMostrarFormulario(false);
   }
 
+  function manejarCambioCorreo(valor) {
+    setCorreoCliente(valor);
+    setErrorCorreo(validarCorreo(valor));
+  }
+
   function actualizarLinea(clave, campo, valor) {
     setLineas((prev) =>
       prev.map((linea) =>
         linea.clave === clave ? { ...linea, [campo]: valor } : linea
       )
     );
+
+    const lineaActual = lineas.find((l) => l.clave === clave);
+    const lineaActualizada = { ...lineaActual, [campo]: valor };
+    setErroresLineas((prev) => ({
+      ...prev,
+      [clave]: validarLinea(lineaActualizada),
+    }));
   }
 
   function agregarLinea() {
@@ -139,6 +179,11 @@ export default function AdminPedidos({
     setLineas((prev) =>
       prev.length > 1 ? prev.filter((linea) => linea.clave !== clave) : prev
     );
+    setErroresLineas((prev) => {
+      const copia = { ...prev };
+      delete copia[clave];
+      return copia;
+    });
   }
 
   const totalEstimado = useMemo(() => {
@@ -154,6 +199,25 @@ export default function AdminPedidos({
   async function manejarEnvioFormulario(e) {
     e.preventDefault();
     setErrorFormulario("");
+
+    // Revalida correo y todas las líneas antes de enviar
+    const mensajeCorreo = validarCorreo(correoCliente);
+    setErrorCorreo(mensajeCorreo);
+
+    const nuevosErroresLineas = {};
+    lineas.forEach((linea) => {
+      nuevosErroresLineas[linea.clave] = validarLinea(linea);
+    });
+    setErroresLineas(nuevosErroresLineas);
+
+    const hayErrorLinea = Object.values(nuevosErroresLineas).some(
+      (errores) => Object.keys(errores).length > 0
+    );
+
+    if (mensajeCorreo || hayErrorLinea) {
+      setErrorFormulario("Revisa los campos marcados en rojo.");
+      return;
+    }
 
     const items = lineas
       .filter((linea) => linea.producto_id && Number(linea.cantidad) > 0)
@@ -288,7 +352,7 @@ export default function AdminPedidos({
         subtitulo="Regístralo a nombre de un cliente ya existente."
         onCerrar={cerrarFormulario}
       >
-        <form onSubmit={manejarEnvioFormulario} className="grid gap-4">
+        <form onSubmit={manejarEnvioFormulario} noValidate className="grid gap-4">
           {/* Tarjeta: cliente */}
           <div className="rounded-xl border border-[#e0f2fe] bg-[#f0f9ff]/60 p-4">
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[#075985]/70">
@@ -297,11 +361,18 @@ export default function AdminPedidos({
             <input
               type="email"
               value={correoCliente}
-              onChange={(e) => setCorreoCliente(e.target.value)}
+              onChange={(e) => manejarCambioCorreo(e.target.value)}
               placeholder="correo@cliente.com"
               required
-              className="w-full rounded-lg border border-[#bae6fd] bg-white px-3 py-2 text-sm focus:border-[#38bdf8] focus:outline-none"
+              className={`w-full rounded-lg border bg-white px-3 py-2 text-sm focus:outline-none ${
+                errorCorreo
+                  ? "border-[--color-strawberry-deep] focus:border-[--color-strawberry-deep]"
+                  : "border-[#bae6fd] focus:border-[#38bdf8]"
+              }`}
             />
+            {errorCorreo && (
+              <p className="mt-1 text-xs text-[--color-strawberry-deep]">{errorCorreo}</p>
+            )}
           </div>
 
           {/* Tarjeta: productos */}
@@ -311,47 +382,65 @@ export default function AdminPedidos({
             </label>
 
             <div className="space-y-2">
-              {lineas.map((linea) => (
-                <div
-                  key={linea.clave}
-                  className="flex gap-2 rounded-lg border border-[#ffe4e6] bg-white p-2 shadow-sm"
-                >
-                  <select
-                    value={linea.producto_id}
-                    onChange={(e) =>
-                      actualizarLinea(linea.clave, "producto_id", e.target.value)
-                    }
-                    required
-                    className="flex-1 rounded-lg border border-[--color-border-soft] px-3 py-2 text-sm focus:border-[#fb7185] focus:outline-none"
-                  >
-                    <option value="">Selecciona un producto...</option>
-                    {productos.map((producto) => (
-                      <option key={producto.id} value={producto.id}>
-                        {producto.nombre} — $
-                        {Number(producto.precio).toLocaleString("es-CO")}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="1"
-                    value={linea.cantidad}
-                    onChange={(e) =>
-                      actualizarLinea(linea.clave, "cantidad", e.target.value)
-                    }
-                    className="w-16 rounded-lg border border-[--color-border-soft] px-2 py-2 text-center text-sm focus:border-[#fb7185] focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => quitarLinea(linea.clave)}
-                    disabled={lineas.length === 1}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#f43f5e] transition hover:bg-[#ffe4e6] disabled:opacity-30"
-                    aria-label="Quitar producto"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+              {lineas.map((linea) => {
+                const erroresLinea = erroresLineas[linea.clave] || {};
+                return (
+                  <div key={linea.clave} className="flex flex-col gap-1">
+                    <div className="flex gap-2 rounded-lg border border-[#ffe4e6] bg-white p-2 shadow-sm">
+                      <select
+                        value={linea.producto_id}
+                        onChange={(e) =>
+                          actualizarLinea(linea.clave, "producto_id", e.target.value)
+                        }
+                        required
+                        className={`flex-1 rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                          erroresLinea.producto_id
+                            ? "border-[--color-strawberry-deep] focus:border-[--color-strawberry-deep]"
+                            : "border-[--color-border-soft] focus:border-[#fb7185]"
+                        }`}
+                      >
+                        <option value="">Selecciona un producto...</option>
+                        {productos.map((producto) => (
+                          <option key={producto.id} value={producto.id}>
+                            {producto.nombre} — $
+                            {Number(producto.precio).toLocaleString("es-CO")}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        max={CANTIDAD_MAXIMA}
+                        value={linea.cantidad}
+                        onChange={(e) =>
+                          actualizarLinea(linea.clave, "cantidad", e.target.value)
+                        }
+                        className={`w-16 rounded-lg border px-2 py-2 text-center text-sm focus:outline-none ${
+                          erroresLinea.cantidad
+                            ? "border-[--color-strawberry-deep] focus:border-[--color-strawberry-deep]"
+                            : "border-[--color-border-soft] focus:border-[#fb7185]"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => quitarLinea(linea.clave)}
+                        disabled={lineas.length === 1}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#f43f5e] transition hover:bg-[#ffe4e6] disabled:opacity-30"
+                        aria-label="Quitar producto"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {(erroresLinea.producto_id || erroresLinea.cantidad) && (
+                      <p className="pl-1 text-xs text-[--color-strawberry-deep]">
+                        {[erroresLinea.producto_id, erroresLinea.cantidad]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <button

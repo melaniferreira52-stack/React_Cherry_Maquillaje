@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import logoImg from "../../assets/img/logo.png";
 
 /**
  * Shell de dashboard con sidebar fijo + encabezado, reutilizado por
@@ -48,7 +49,7 @@ export default function DashboardLayout({
         <div className="flex h-full flex-col md:sticky md:top-0 md:h-screen">
           <div className="hidden flex-col items-center gap-3 px-6 py-6 text-center md:flex">
             <img
-              src="/src/assets/img/logo.png"
+              src={logoImg}
               alt="Cherry Beauty"
               className="h-10 w-10 rounded-full object-cover ring-2 ring-pink-400"
             />

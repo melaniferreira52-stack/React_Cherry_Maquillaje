@@ -19,7 +19,7 @@ ADMIN_NOMBRE = "Admin"
 ADMIN_APELLIDO = "Cherry Beauty"
 ADMIN_TIPO_DOCUMENTO = "CC"
 ADMIN_NUMERO_DOCUMENTO = "1000000000"
-ADMIN_DIRECCION = "Copacabana - Antioquia"
+ADMIN_DIRECCION = "Manrique - Antioquia"
 ADMIN_TELEFONO = "3000000000"
 # ----------------------------------------------------------------
 

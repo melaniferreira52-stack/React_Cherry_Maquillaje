@@ -79,7 +79,7 @@ export default function Factura() {
           <div>
             <h1 className="text-2xl font-bold text-choco-deep">Cherry Beauty</h1>
             <p className="text-sm text-choco-soft">Maquillaje y Belleza</p>
-            <p className="text-sm text-choco-soft">Copacabana - Antioquia</p>
+            <p className="text-sm text-choco-soft">Manrique - Antioquia</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-bold text-caramel-deep">Factura</p>

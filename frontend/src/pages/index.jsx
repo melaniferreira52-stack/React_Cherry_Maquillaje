@@ -17,18 +17,21 @@ const DESTACADOS = [
     imagen: labiales,
     nombre: "Labiales",
     descripcion: "Tonos intensos y de larga duración.",
+    razon: "Elegidos por su pigmentación y fórmula hidratante que dura todo el día.",
     fondo: "bg-caramel-soft",
   },
   {
     imagen: rubores,
     nombre: "Rubores",
     descripcion: "Un toque de color fresco y natural.",
+    razon: "Favoritos por su acabado difuminado que se ve natural en cualquier tono de piel.",
     fondo: "bg-strawberry-soft",
   },
   {
     imagen: iluminadores,
     nombre: "Iluminadores",
     descripcion: "Paletas para cada ocasión.",
+    razon: "Los más pedidos por su brillo suave, ideal para el día y la noche.",
     fondo: "bg-pistachio-soft",
   },
 ];
@@ -85,7 +88,7 @@ function Inicio() {
             Descubre nuestro maquillaje de calidad, elegido con cuidado
             para realzar tu belleza natural.
           </p>
-          
+
           {/* Galería de 3 modelos */}
           <div className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-6">
             {GALERIA_HERO.map((item) => (
@@ -124,14 +127,22 @@ function Inicio() {
               className="rounded-3xl border border-border-soft bg-white p-8 shadow-soft transition-all duration-300 hover:-translate-y-2 hover:shadow-lift"
             >
               <span
-                className={`mb-4 inline-flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl ${producto.fondo}`}
+                className={`group relative mb-4 flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl ${producto.fondo}`}
               >
                 <img
                   src={producto.imagen}
                   alt={producto.nombre}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
+
+                {/* Overlay que aparece al pasar el cursor */}
+                <div className="absolute inset-0 flex items-end bg-choco/0 p-4 opacity-0 transition-all duration-300 group-hover:bg-choco/70 group-hover:opacity-100">
+                  <p className="translate-y-2 text-sm font-medium text-white transition-transform duration-300 group-hover:translate-y-0">
+                    {producto.razon}
+                  </p>
+                </div>
               </span>
+
               <h3 className="mb-1 text-xl font-semibold">{producto.nombre}</h3>
               <p className="text-choco-soft">{producto.descripcion}</p>
             </div>

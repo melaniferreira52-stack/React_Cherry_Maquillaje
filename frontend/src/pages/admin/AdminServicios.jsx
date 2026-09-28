@@ -17,6 +17,13 @@ const OPCIONES_ESTADO = [
   { value: "no_disponible", etiqueta: "No disponibles" },
 ];
 
+const LIMITE_PALABRAS = 50;
+
+// Cuenta palabras separadas por espacios, ignorando espacios extra
+function contarPalabras(texto) {
+  return texto.trim() === "" ? 0 : texto.trim().split(/\s+/).length;
+}
+
 export default function AdminServicios({
   esAdmin = true,
   abrirCrearInicial = false,
@@ -35,6 +42,7 @@ export default function AdminServicios({
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [formulario, setFormulario] = useState(FORMULARIO_VACIO);
   const [editandoId, setEditandoId] = useState(null);
+  const [errores, setErrores] = useState({});
   const [errorFormulario, setErrorFormulario] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -55,9 +63,35 @@ export default function AdminServicios({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Valida un campo individual; se usa tanto al escribir como al enviar
+  function validarCampo(name, value) {
+    switch (name) {
+      case "nombre":
+        if (!value.trim()) return "El nombre es obligatorio";
+        if (value.trim().length > 80) return "Máximo 80 caracteres";
+        if (contarPalabras(value) > LIMITE_PALABRAS)
+          return `Máximo ${LIMITE_PALABRAS} palabras`;
+        return "";
+
+      case "descripcion":
+        if (!value.trim()) return "La descripción es obligatoria";
+        if (contarPalabras(value) > LIMITE_PALABRAS)
+          return `Máximo ${LIMITE_PALABRAS} palabras`;
+        return "";
+
+      case "precio":
+        if (value !== "" && Number(value) < 0) return "El precio no puede ser negativo";
+        return "";
+
+      default:
+        return "";
+    }
+  }
+
   function abrirCrear() {
     setEditandoId(null);
     setFormulario(FORMULARIO_VACIO);
+    setErrores({});
     setErrorFormulario("");
     setMostrarFormulario(true);
   }
@@ -84,7 +118,11 @@ export default function AdminServicios({
   }, [servicios, busqueda, filtroEstado]);
 
   function manejarCambio(e) {
-    setFormulario({ ...formulario, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormulario({ ...formulario, [name]: value });
+
+    const mensajeError = validarCampo(name, value);
+    setErrores((actual) => ({ ...actual, [name]: mensajeError }));
   }
 
   function iniciarEdicion(servicio) {
@@ -94,6 +132,7 @@ export default function AdminServicios({
       descripcion: servicio.descripcion,
       precio: servicio.precio,
     });
+    setErrores({});
     setMensaje("");
     setErrorFormulario("");
     setMostrarFormulario(true);
@@ -102,6 +141,7 @@ export default function AdminServicios({
   function cancelarEdicion() {
     setEditandoId(null);
     setFormulario(FORMULARIO_VACIO);
+    setErrores({});
     setErrorFormulario("");
     setMostrarFormulario(false);
   }
@@ -110,6 +150,21 @@ export default function AdminServicios({
     e.preventDefault();
     setMensaje("");
     setErrorFormulario("");
+
+    // Revalida todos los campos antes de enviar (por si alguno nunca
+    // disparó onChange, como al pegar texto o dejar un campo vacío)
+    const nuevosErrores = {};
+    ["nombre", "descripcion", "precio"].forEach((campo) => {
+      const mensajeError = validarCampo(campo, formulario[campo]);
+      if (mensajeError) nuevosErrores[campo] = mensajeError;
+    });
+    setErrores(nuevosErrores);
+
+    if (Object.keys(nuevosErrores).length > 0) {
+      setErrorFormulario("Revisa los campos marcados en rojo.");
+      return;
+    }
+
     setEnviando(true);
 
     try {
@@ -259,33 +314,88 @@ export default function AdminServicios({
         }
         onCerrar={cancelarEdicion}
       >
-        <form onSubmit={manejarEnvio} className="grid gap-3 sm:grid-cols-2">
-          <input
-            name="nombre"
-            value={formulario.nombre}
-            onChange={manejarCambio}
-            placeholder="Nombre"
-            required
-            className="rounded-lg border border-[--color-border-soft] px-3 py-2 text-sm focus:border-[--color-strawberry-deep] focus:outline-none"
-          />
-          <input
-            name="precio"
-            type="number"
-            min="0"
-            value={formulario.precio}
-            onChange={manejarCambio}
-            placeholder="Precio (0 si no tiene costo adicional)"
-            className="rounded-lg border border-[--color-border-soft] px-3 py-2 text-sm focus:border-[--color-strawberry-deep] focus:outline-none"
-          />
-          <textarea
-            name="descripcion"
-            value={formulario.descripcion}
-            onChange={manejarCambio}
-            placeholder="Descripción"
-            required
-            rows={3}
-            className="rounded-lg border border-[--color-border-soft] px-3 py-2 text-sm focus:border-[--color-strawberry-deep] focus:outline-none sm:col-span-2"
-          />
+        <form onSubmit={manejarEnvio} noValidate className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <input
+              name="nombre"
+              value={formulario.nombre}
+              onChange={manejarCambio}
+              placeholder="Nombre"
+              required
+              className={`rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                errores.nombre
+                  ? "border-[--color-strawberry-deep] focus:border-[--color-strawberry-deep]"
+                  : "border-[--color-border-soft] focus:border-[--color-strawberry-deep]"
+              }`}
+            />
+            <div className="flex items-center justify-between">
+              {errores.nombre ? (
+                <span className="text-xs text-[--color-strawberry-deep]">{errores.nombre}</span>
+              ) : (
+                <span />
+              )}
+              <span
+                className={`text-xs ${
+                  contarPalabras(formulario.nombre) > LIMITE_PALABRAS
+                    ? "text-[--color-strawberry-deep]"
+                    : "text-[--color-choco-soft]"
+                }`}
+              >
+                {contarPalabras(formulario.nombre)}/{LIMITE_PALABRAS} palabras
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <input
+              name="precio"
+              type="number"
+              min="0"
+              value={formulario.precio}
+              onChange={manejarCambio}
+              placeholder="Precio (0 si no tiene costo adicional)"
+              className={`rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                errores.precio
+                  ? "border-[--color-strawberry-deep] focus:border-[--color-strawberry-deep]"
+                  : "border-[--color-border-soft] focus:border-[--color-strawberry-deep]"
+              }`}
+            />
+            {errores.precio && (
+              <span className="text-xs text-[--color-strawberry-deep]">{errores.precio}</span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <textarea
+              name="descripcion"
+              value={formulario.descripcion}
+              onChange={manejarCambio}
+              placeholder="Descripción"
+              required
+              rows={3}
+              className={`rounded-lg border px-3 py-2 text-sm focus:outline-none ${
+                errores.descripcion
+                  ? "border-[--color-strawberry-deep] focus:border-[--color-strawberry-deep]"
+                  : "border-[--color-border-soft] focus:border-[--color-strawberry-deep]"
+              }`}
+            />
+            <div className="flex items-center justify-between">
+              {errores.descripcion ? (
+                <span className="text-xs text-[--color-strawberry-deep]">{errores.descripcion}</span>
+              ) : (
+                <span />
+              )}
+              <span
+                className={`text-xs ${
+                  contarPalabras(formulario.descripcion) > LIMITE_PALABRAS
+                    ? "text-[--color-strawberry-deep]"
+                    : "text-[--color-choco-soft]"
+                }`}
+              >
+                {contarPalabras(formulario.descripcion)}/{LIMITE_PALABRAS} palabras
+              </span>
+            </div>
+          </div>
 
           {errorFormulario && (
             <p className="text-sm text-[--color-strawberry-deep] sm:col-span-2">

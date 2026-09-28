@@ -10,6 +10,18 @@ const REGEX_SOLO_LETRAS = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/;
 const REGEX_DOCUMENTO = /^[0-9]{6,12}$/;
 const REGEX_TELEFONO = /^[0-9]{7,10}$/;
 
+// Límites máximos de caracteres por campo (se usan en maxLength, validación y contador)
+const LIMITES = {
+  nombre: 40,
+  apellido: 40,
+  numeroDocumento: 12,
+  direccion: 80,
+  telefono: 10,
+  correo: 50,
+  password: 20,
+  confirmarPassword: 20,
+};
+
 const TIPOS_DOCUMENTO = [
   { value: "CC", label: "Cédula de ciudadanía" },
   { value: "TI", label: "Tarjeta de identidad" },
@@ -59,10 +71,49 @@ function BotonOjo({ visible, onClick, etiqueta }) {
   );
 }
 
+// Muestra el contador "actual/máximo" debajo de un campo
+function CampoConContador({ valor, max, children }) {
+  const lleno = valor.length >= max;
+  return (
+    <div>
+      {children}
+      <p
+        className={`mt-1 text-right text-xs font-semibold ${
+          lleno ? "text-strawberry-deep" : "text-choco-soft"
+        }`}
+      >
+        {valor.length}/{max}
+      </p>
+    </div>
+  );
+}
+
+// Circulito de estado (vacío / con check) para cada ítem de la checklist
+function ItemValidacion({ etiqueta, valido }) {
+  return (
+    <li className="flex items-center gap-2 text-sm">
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200 ${
+          valido
+            ? "border-strawberry-deep bg-strawberry-deep"
+            : "border-border-soft bg-white"
+        }`}
+      >
+        {valido && (
+          <svg viewBox="0 0 24 24" className="h-2.5 w-2.5 fill-none stroke-white" strokeWidth="3">
+            <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+      <span className={valido ? "text-choco" : "text-choco-soft"}>{etiqueta}</span>
+    </li>
+  );
+}
+
 /**
  * Formulario de registro de clientes. Se usa dentro del Modal
  * que se abre desde Login ("Crear cuenta"). Valida en tiempo real
- * mientras el usuario escribe.
+ * mientras el usuario escribe y muestra el contador de caracteres.
  */
 function RegisterForm({ onRegistroExitoso }) {
   const [formulario, setFormulario] = useState(VACIO);
@@ -78,7 +129,7 @@ function RegisterForm({ onRegistroExitoso }) {
       case "apellido":
         if (!value.trim()) return "Este campo es obligatorio";
         if (value.trim().length < 2) return "Mínimo 2 caracteres";
-        if (value.trim().length > 40) return "Máximo 40 caracteres";
+        if (value.trim().length > LIMITES[name]) return `Máximo ${LIMITES[name]} caracteres`;
         if (!REGEX_SOLO_LETRAS.test(value)) return "Solo se permiten letras";
         return "";
 
@@ -95,7 +146,8 @@ function RegisterForm({ onRegistroExitoso }) {
       case "direccion":
         if (!value.trim()) return "La dirección es obligatoria";
         if (value.trim().length < 5) return "Mínimo 5 caracteres";
-        if (value.trim().length > 80) return "Máximo 80 caracteres";
+        if (value.trim().length > LIMITES.direccion)
+          return `Máximo ${LIMITES.direccion} caracteres`;
         return "";
 
       case "telefono":
@@ -106,13 +158,14 @@ function RegisterForm({ onRegistroExitoso }) {
 
       case "correo":
         if (!value.trim()) return "El correo es obligatorio";
+        if (value.length > LIMITES.correo) return `Máximo ${LIMITES.correo} caracteres`;
         if (!REGEX_CORREO.test(value)) return "Ingresa un correo válido";
         return "";
 
       case "password":
         if (!value) return "La contraseña es obligatoria";
         if (value.length < 8) return "Mínimo 8 caracteres";
-        if (value.length > 20) return "Máximo 20 caracteres";
+        if (value.length > LIMITES.password) return `Máximo ${LIMITES.password} caracteres`;
         return "";
 
       case "confirmarPassword":
@@ -186,6 +239,24 @@ function RegisterForm({ onRegistroExitoso }) {
     }
   };
 
+  // Estado de validez de cada campo, calculado en cada render para que
+  // la checklist reaccione al instante mientras la persona va escribiendo.
+  const camposValidos = {
+    nombre: formulario.nombre !== "" && !validarCampo("nombre", formulario.nombre, formulario),
+    apellido: formulario.apellido !== "" && !validarCampo("apellido", formulario.apellido, formulario),
+    tipoDocumento: !validarCampo("tipoDocumento", formulario.tipoDocumento, formulario),
+    numeroDocumento:
+      formulario.numeroDocumento !== "" &&
+      !validarCampo("numeroDocumento", formulario.numeroDocumento, formulario),
+    direccion: formulario.direccion !== "" && !validarCampo("direccion", formulario.direccion, formulario),
+    telefono: formulario.telefono !== "" && !validarCampo("telefono", formulario.telefono, formulario),
+    correo: formulario.correo !== "" && !validarCampo("correo", formulario.correo, formulario),
+    password: formulario.password !== "" && !validarCampo("password", formulario.password, formulario),
+    confirmarPassword:
+      formulario.confirmarPassword !== "" &&
+      !validarCampo("confirmarPassword", formulario.confirmarPassword, formulario),
+  };
+
   return (
     <div>
       <div className="mb-4 flex justify-center">
@@ -208,27 +279,31 @@ function RegisterForm({ onRegistroExitoso }) {
 
       <form onSubmit={manejarEnvio} noValidate className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            id="reg-nombre"
-            name="nombre"
-            label="Nombre"
-            value={formulario.nombre}
-            onChange={manejarCambio}
-            placeholder="Tu nombre"
-            maxLength={40}
-            error={errores.nombre}
-          />
+          <CampoConContador valor={formulario.nombre} max={LIMITES.nombre}>
+            <Input
+              id="reg-nombre"
+              name="nombre"
+              label="Nombre"
+              value={formulario.nombre}
+              onChange={manejarCambio}
+              placeholder="Tu nombre"
+              maxLength={LIMITES.nombre}
+              error={errores.nombre}
+            />
+          </CampoConContador>
 
-          <Input
-            id="reg-apellido"
-            name="apellido"
-            label="Apellido"
-            value={formulario.apellido}
-            onChange={manejarCambio}
-            placeholder="Tu apellido"
-            maxLength={40}
-            error={errores.apellido}
-          />
+          <CampoConContador valor={formulario.apellido} max={LIMITES.apellido}>
+            <Input
+              id="reg-apellido"
+              name="apellido"
+              label="Apellido"
+              value={formulario.apellido}
+              onChange={manejarCambio}
+              placeholder="Tu apellido"
+              maxLength={LIMITES.apellido}
+              error={errores.apellido}
+            />
+          </CampoConContador>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -242,93 +317,125 @@ function RegisterForm({ onRegistroExitoso }) {
             error={errores.tipoDocumento}
           />
 
-          <Input
-            id="reg-numero-documento"
-            name="numeroDocumento"
-            label="Número de documento"
-            value={formulario.numeroDocumento}
-            onChange={manejarCambio}
-            placeholder="Sin puntos ni espacios"
-            maxLength={12}
-            error={errores.numeroDocumento}
-          />
+          <CampoConContador
+            valor={formulario.numeroDocumento}
+            max={LIMITES.numeroDocumento}
+          >
+            <Input
+              id="reg-numero-documento"
+              name="numeroDocumento"
+              label="Número de documento"
+              value={formulario.numeroDocumento}
+              onChange={manejarCambio}
+              placeholder="Sin puntos ni espacios"
+              maxLength={LIMITES.numeroDocumento}
+              error={errores.numeroDocumento}
+            />
+          </CampoConContador>
         </div>
 
-        <Input
-          id="reg-direccion"
-          name="direccion"
-          label="Dirección"
-          value={formulario.direccion}
-          onChange={manejarCambio}
-          placeholder="Calle 10 # 20 - 30"
-          maxLength={80}
-          error={errores.direccion}
-        />
+        <CampoConContador valor={formulario.direccion} max={LIMITES.direccion}>
+          <Input
+            id="reg-direccion"
+            name="direccion"
+            label="Dirección"
+            value={formulario.direccion}
+            onChange={manejarCambio}
+            placeholder="Calle 10 # 20 - 30"
+            maxLength={LIMITES.direccion}
+            error={errores.direccion}
+          />
+        </CampoConContador>
 
-        <Input
-          id="reg-telefono"
-          name="telefono"
-          label="Teléfono"
-          value={formulario.telefono}
-          onChange={manejarCambio}
-          placeholder="3000000000"
-          maxLength={10}
-          error={errores.telefono}
-        />
+        <CampoConContador valor={formulario.telefono} max={LIMITES.telefono}>
+          <Input
+            id="reg-telefono"
+            name="telefono"
+            label="Teléfono"
+            value={formulario.telefono}
+            onChange={manejarCambio}
+            placeholder="3000000000"
+            maxLength={LIMITES.telefono}
+            error={errores.telefono}
+          />
+        </CampoConContador>
 
-        <Input
-          id="reg-correo"
-          name="correo"
-          type="email"
-          label="Correo electrónico"
-          value={formulario.correo}
-          onChange={manejarCambio}
-          placeholder="correo@ejemplo.com"
-          error={errores.correo}
-          autoComplete="email"
-        />
+        <CampoConContador valor={formulario.correo} max={LIMITES.correo}>
+          <Input
+            id="reg-correo"
+            name="correo"
+            type="email"
+            label="Correo electrónico"
+            value={formulario.correo}
+            onChange={manejarCambio}
+            placeholder="correo@ejemplo.com"
+            maxLength={LIMITES.correo}
+            error={errores.correo}
+            autoComplete="email"
+          />
+        </CampoConContador>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            id="reg-password"
-            name="password"
-            type={verPassword ? "text" : "password"}
-            label="Contraseña"
-            value={formulario.password}
-            onChange={manejarCambio}
-            placeholder="Mínimo 8 caracteres"
-            maxLength={20}
-            error={errores.password}
-            autoComplete="new-password"
-            rightSlot={
-              <BotonOjo
-                visible={verPassword}
-                onClick={() => setVerPassword((prev) => !prev)}
-                etiqueta={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              />
-            }
-          />
+          <CampoConContador valor={formulario.password} max={LIMITES.password}>
+            <Input
+              id="reg-password"
+              name="password"
+              type={verPassword ? "text" : "password"}
+              label="Contraseña"
+              value={formulario.password}
+              onChange={manejarCambio}
+              placeholder="Mínimo 8 caracteres"
+              maxLength={LIMITES.password}
+              error={errores.password}
+              autoComplete="new-password"
+              rightSlot={
+                <BotonOjo
+                  visible={verPassword}
+                  onClick={() => setVerPassword((prev) => !prev)}
+                  etiqueta={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                />
+              }
+            />
+          </CampoConContador>
 
-          <Input
-            id="reg-confirmar-password"
-            name="confirmarPassword"
-            type={verConfirmarPassword ? "text" : "password"}
-            label="Confirmar contraseña"
-            value={formulario.confirmarPassword}
-            onChange={manejarCambio}
-            placeholder="Repite tu contraseña"
-            maxLength={20}
-            error={errores.confirmarPassword}
-            autoComplete="new-password"
-            rightSlot={
-              <BotonOjo
-                visible={verConfirmarPassword}
-                onClick={() => setVerConfirmarPassword((prev) => !prev)}
-                etiqueta={verConfirmarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-              />
-            }
-          />
+          <CampoConContador
+            valor={formulario.confirmarPassword}
+            max={LIMITES.confirmarPassword}
+          >
+            <Input
+              id="reg-confirmar-password"
+              name="confirmarPassword"
+              type={verConfirmarPassword ? "text" : "password"}
+              label="Confirmar contraseña"
+              value={formulario.confirmarPassword}
+              onChange={manejarCambio}
+              placeholder="Repite tu contraseña"
+              maxLength={LIMITES.confirmarPassword}
+              error={errores.confirmarPassword}
+              autoComplete="new-password"
+              rightSlot={
+                <BotonOjo
+                  visible={verConfirmarPassword}
+                  onClick={() => setVerConfirmarPassword((prev) => !prev)}
+                  etiqueta={verConfirmarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                />
+              }
+            />
+          </CampoConContador>
         </div>
+
+        {/* Checklist de validaciones, estilo lista de requisitos */}
+        <ul className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-2xl border border-border-soft bg-cream-soft px-5 py-4">
+          <ItemValidacion etiqueta="Nombre" valido={camposValidos.nombre} />
+          <ItemValidacion etiqueta="Apellido" valido={camposValidos.apellido} />
+          <ItemValidacion etiqueta="Tipo de documento" valido={camposValidos.tipoDocumento} />
+          <ItemValidacion etiqueta="Número de documento" valido={camposValidos.numeroDocumento} />
+          <ItemValidacion etiqueta="Dirección" valido={camposValidos.direccion} />
+          <ItemValidacion etiqueta="Teléfono" valido={camposValidos.telefono} />
+          <ItemValidacion etiqueta="Correo" valido={camposValidos.correo} />
+          <ItemValidacion etiqueta="Contraseña" valido={camposValidos.password} />
+          <ItemValidacion etiqueta="Confirmar contraseña" valido={camposValidos.confirmarPassword} />
+        </ul>
 
         {mensajeServidor && (
           <div className="rounded-2xl border border-strawberry-deep bg-strawberry-soft px-4 py-3 text-sm font-semibold text-strawberry-deep">
@@ -340,7 +447,6 @@ function RegisterForm({ onRegistroExitoso }) {
           {enviando ? "Registrando..." : "Registrarme"}
         </Button>
       </form>
-      
     </div>
   );
 }

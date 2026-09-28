@@ -1,13 +1,18 @@
 import os
 import smtplib
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-SMTP_HOST = os.getenv("BREVO_SMTP_HOST", "smtp-relay.brevo.com")
-SMTP_PORT = int(os.getenv("BREVO_SMTP_PORT", "587"))
-SMTP_USER = os.getenv("BREVO_SMTP_USER")
-SMTP_KEY = os.getenv("BREVO_SMTP_KEY")
-EMAIL_FROM = os.getenv("EMAIL_FROM", "no-reply@cherrybeauty.com")
+from dotenv import load_dotenv
+
+load_dotenv()
+
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "CherryBeauty")
 
 
 def _cuerpo_texto_plano(nombre: str, codigo: str) -> str:
@@ -95,35 +100,32 @@ def _cuerpo_html(nombre: str, codigo: str) -> str:
 
 def enviar_codigo_recuperacion(correo_destino: str, nombre: str, codigo: str) -> None:
     """
-    Envía el código de recuperación de 6 dígitos por correo (con diseño HTML,
-    y una versión en texto plano como respaldo para clientes que no rendericen HTML).
+    Envía el código de recuperación de 6 dígitos por Gmail (SMTP), con diseño HTML
+    y una versión en texto plano como respaldo.
 
-    Si BREVO_SMTP_USER / BREVO_SMTP_KEY no están configurados en el .env
-    (por ejemplo en desarrollo local), no falla la petición: solo imprime
-    el código en la consola del backend para que puedas seguir probando.
+    Si EMAIL_USER / EMAIL_PASSWORD no están en el .env, no falla la petición:
+    imprime el código en la consola del backend para poder seguir probando.
     """
     asunto = "Tu código de recuperación - Cherry Beauty"
 
-    if not SMTP_USER or not SMTP_KEY:
+    if not EMAIL_USER or not EMAIL_PASSWORD:
         print(f"[DEV] Código de recuperación para {correo_destino}: {codigo}")
         return
 
     mensaje = MIMEMultipart("alternative")
     mensaje["Subject"] = asunto
-    mensaje["From"] = f"Cherry Beauty <{EMAIL_FROM}>"
+    mensaje["From"] = f"{EMAIL_FROM_NAME} <{EMAIL_USER}>"
     mensaje["To"] = correo_destino
 
-    # Se adjuntan ambas versiones; los clientes de correo modernos muestran
-    # la HTML y usan la de texto plano como respaldo automático.
     mensaje.attach(MIMEText(_cuerpo_texto_plano(nombre, codigo), "plain", "utf-8"))
     mensaje.attach(MIMEText(_cuerpo_html(nombre, codigo), "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as servidor:
-            servidor.starttls()
-            servidor.login(SMTP_USER, SMTP_KEY)
-            servidor.sendmail(EMAIL_FROM, [correo_destino], mensaje.as_string())
+        contexto = ssl.create_default_context()
+        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT, timeout=15) as servidor:
+            servidor.starttls(context=contexto)
+            servidor.login(EMAIL_USER, EMAIL_PASSWORD)
+            servidor.sendmail(EMAIL_USER, [correo_destino], mensaje.as_string())
     except Exception as error:
-        # No queremos que un fallo de correo tumbe el flujo de recuperación;
-        # lo dejamos registrado en consola para depurar.
+        # No tumba el flujo de recuperación; deja el error en la consola para depurar.
         print(f"[ERROR envío de correo] {error}. Código para {correo_destino}: {codigo}")
